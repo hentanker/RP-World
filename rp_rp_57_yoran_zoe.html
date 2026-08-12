@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt-br" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>RP 57 Yoran & Zoe</title>
+    <link rel="manifest" href="./manifest.json?v=2">
+    <link rel="icon" type="image/png" href="./logo.png?v=2">
+    <meta name="theme-color" content="#0b141a">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+    <style>
+        :root[data-theme="dark"] { --bg: #0b141a; --verde: #005c4b; --cinza: #202c33; --text: #e9edef; --accent: #ffcc00; --nav: #202c33; --ov: rgba(11,20,26,0.92); }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        #bg-layer { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background-image: linear-gradient(var(--ov), var(--ov)), url('plano_fundo.png'); background-size: cover; background-position: center; transition: background-image 0.5s; pointer-events: none; }
+        body { margin: 0; padding: 0; background-color: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; user-select: none; }
+        .top-bar { position: fixed; top: 0; width: 100%; height: 60px; background: var(--nav); display: flex; align-items: center; padding: 0 8px; z-index: 3000; justify-content: space-between; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+        .top-bar strong { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
+        #search-bar { display: none; position: fixed; top: 60px; width: 100%; background: var(--nav); padding: 10px; z-index: 2999; border-bottom: 1px solid var(--accent); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        #search-input { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--accent); background: #2a3942; color: white; font-size: 15px; outline: none; }
+        #search-results { max-height: 250px; overflow-y: auto; background: #2a3942; margin-top: 8px; border-radius: 8px; }
+        .srch-item { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+        .chat-container { display: flex; flex-direction: column; width: 100%; max-width: 650px; margin: 0 auto; padding: 80px 10px 140px 10px; }
+        .msg-row { display: flex; width: 100%; margin-bottom: 12px; }
+        .msg-row.me { justify-content: flex-end; }
+        .msg-row.them { justify-content: flex-start; }
+        .bubble { position: relative; padding: 10px 14px; border-radius: 12px; font-size: 15px; line-height: 1.5; box-shadow: 0 1px 2px rgba(0,0,0,0.3); word-wrap: break-word; max-width: 85%; flex: 0 1 auto; min-width: 0; cursor: pointer; transition: border 0.3s; }
+        .me .bubble { border-top-right-radius: 0; background: var(--cinza); }
+        .them .bubble { border-top-left-radius: 0; background: var(--verde); }
+        .nome { font-weight: bold; font-size: 13px; color: var(--accent); display: block; margin-bottom: 6px; }
+        .star { position: absolute; top: -5px; right: -35px; cursor: pointer; color: #8696a0; font-size: 22px; opacity: 0.5; padding: 5px; }
+        .me .star { right: auto; left: -35px; }
+        .star.active { color: var(--accent) !important; opacity: 1 !important; }
+        .time { font-size: 10px; color: #8696a0; float: right; margin: 5px 0 0 15px; opacity: 0.8; display: flex; align-items: center; gap: 4px;}
+        .bullet { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px;}
+        .bullet-dot { color: var(--accent); font-weight: bold; font-size: 16px; line-height: 1.2; }
+        .btn-nav { text-align: center; padding: 15px; cursor: pointer; color: var(--accent); font-weight: bold; margin: 15px 0; background: rgba(0,0,0,0.2); border-radius: 12px; border: none; width: 100%; }
+        #drawer { position: fixed; right: -100%; top: 0; width: 85%; max-width: 320px; height: 100%; background: var(--nav); z-index: 5000; transition: 0.3s; padding: 20px; box-shadow: -5px 0 25px rgba(0,0,0,0.5); overflow-y: auto; }
+        #drawer.open { right: 0; }
+        .input-area { position: fixed; bottom: 0; width: 100%; max-width: 650px; left: 50%; transform: translateX(-50%); background: var(--nav); padding: 12px 8px; display: flex; gap: 6px; align-items: flex-end; z-index: 4000; border-top: 1px solid rgba(255,255,255,0.05); }
+        textarea { flex: 1; background: #2a3942; border: none; border-radius: 20px; color: #fff; padding: 10px 15px; font-size: 15px; resize: none; max-height: 100px; outline: none; user-select: text; }
+        #send-btn { background: #00a884; color: white; border: none; width: 42px; height: 42px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .file-btn { background: none; border: none; color: #8696a0; font-size: 24px; cursor: pointer; padding: 8px; display: flex; align-items: center; justify-content: center; transition: 0.2s;}
+        .menu-icons { display: flex; gap: 6px; align-items: center; }
+        .menu-btn { background: none; border: none; color: white; font-size: 18px; padding: 4px; cursor: pointer; }
+        #ctx-menu { display: none; position: fixed; background: #2a3942; border-radius: 8px; z-index: 9999; box-shadow: 0 4px 15px rgba(0,0,0,0.5); overflow: hidden; min-width: 120px; }
+        .ctx-item { padding: 12px 15px; color: #fff; cursor: pointer; font-size: 15px; }
+        .ctx-item:active { background: #202c33; }
+        .ctx-item.del { color: #ff5252; }
+        .img-msg { max-width: 100%; border-radius: 8px; margin-top: 5px; margin-bottom: 5px; display: block; object-fit: cover; }
+        .tick { font-size: 12px; font-weight: bold; color: #8696a0; }
+        .tick.read { color: #53bdeb; }
+        #typing-indicator { position: fixed; bottom: 70px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 650px; display: none; padding: 5px 15px; font-size: 13px; color: var(--accent); font-style: italic; opacity: 0.9; z-index: 3999; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
+        .btn-back { background: none; border: none; color: var(--accent); font-size: 16px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-weight: bold; }
+        #edit-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 6000; align-items: center; justify-content: center; padding: 15px; }
+        .edit-box { background: var(--nav); width: 100%; max-width: 600px; padding: 20px; border-radius: 12px; border: 1px solid var(--accent); box-shadow: 0 5px 25px rgba(0,0,0,0.8); }
+        .edit-box h3 { color: var(--accent); margin-top: 0; margin-bottom: 15px; font-size: 18px; }
+        .edit-box textarea { width: 100%; height: 200px; background: #2a3942; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; padding: 12px; font-size: 15px; resize: none; outline: none; margin-bottom: 15px; font-family: inherit; }
+        .btn-save { background: var(--accent); color: black; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; }
+        #btn-export { display: none; width: 100%; padding: 12px; margin-bottom: 10px; background: rgba(0, 168, 132, 0.2); color: #00a884; border: 1px solid #00a884; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="bg-layer"></div>
+    <div id="ctx-menu"><div class="ctx-item" onclick="openEditModal()">✏️ Editar</div><div class="ctx-item" style="color:#ff5252;" onclick="delMsg()">🗑️ Apagar</div></div>
+    
+    <div id="edit-modal">
+        <div class="edit-box">
+            <h3>Editar Ação</h3>
+            <textarea id="edit-input"></textarea>
+            <button class="btn-save" onclick="saveEdit()">Salvar Alterações</button>
+            <button onclick="closeEditModal()" style="width:100%; background:none; border:none; color:white; margin-top:10px; cursor:pointer;">Cancelar</button>
+        </div>
+    </div>
+
+    <div id="drawer">
+        <h3 style="color:var(--accent); margin-top:0;">Opções</h3>
+        <button id="btn-export" onclick="exportarTXT()">💾 Exportar Backup TXT</button>
+        <input type="file" id="bg-upload" accept="image/*" style="display: none;">
+        <button id="bg-btn-label" onclick="document.getElementById('bg-upload').click()" style="width:100%; padding:12px; margin-bottom:10px; background:#2a3942; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">🖼️ Mudar Fundo</button>
+        <button onclick="irParaLeitura()" style="width:100%; padding:12px; margin-bottom:10px; background:#2a3942; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">📖 Ir para última leitura</button>
+        <h3 style="color:var(--accent);">⭐ Favoritos</h3>
+        <div id="fav-list"></div>
+        <button onclick="toggleFavs()" style="width:100%; margin-top:20px; padding:15px; background:var(--nav); border:1px solid rgba(255,255,255,0.2); color:white; border-radius:12px; cursor:pointer;">Fechar</button>
+    </div>
+    
+    <div class="top-bar">
+        <button class="btn-back" onclick="window.location.href='index.html'">⬅️ Hub</button>
+        <strong id="ui-nome-rp">RP 57 Yoran & Zoe</strong>
+        <div class="menu-icons">
+            <button class="menu-btn" onclick="toggleSearch()">🔍</button>
+            <button class="menu-btn" onclick="toggleFavs()">⚙️</button>
+            <button class="menu-btn" onclick="jump(true)">↑</button>
+            <button class="menu-btn" onclick="jump(false)">↓</button>
+        </div>
+    </div>
+    
+    <div id="search-bar">
+        <input type="text" id="search-input" onkeyup="doSearch()" placeholder="Digite para buscar na história...">
+        <div id="search-results"></div>
+    </div>
+    
+    <div class="chat-container">
+        <div id="up" class="btn-nav" onclick="load(false)">▲ Anteriores ▲</div>
+        <div id="zone"></div>
+        <div id="down" class="btn-nav" onclick="load(true)" style="display:none;">▼ Próximas ▼</div>
+        <div id="live-zone" style="display:none;"></div>
+    </div>
+    
+    <div id="typing-indicator"></div>
+    <div class="input-area">
+        <input type="file" id="image-upload" accept="image/*" style="display: none;">
+        <button class="file-btn" id="file-btn" onclick="document.getElementById('image-upload').click()">📎</button>
+        <textarea id="msg-input" placeholder="Mensagem..." rows="1" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+        <button id="send-btn" onclick="sendMessage()">➤</button>
+    </div>
+
+    <script>
+        const CONFIG = {"apiKey": "AIzaSyACCEuWDQN7mqsrtkA7FR7zmdDvVIPvxdU", "authDomain": "rp-world-f3fc1.firebaseapp.com", "databaseURL": "https://rp-world-f3fc1-default-rtdb.firebaseio.com", "projectId": "rp-world-f3fc1", "storageBucket": "rp-world-f3fc1.firebasestorage.app", "messagingSenderId": "789300849203", "appId": "1:789300849203:web:eeec4b2b106f4839e81146"}; 
+        const EMAIL_MEU = 'henrique.mdasilva1994@gmail.com'; const NOME_MEU = 'Henrique'; const NOME_DELA = 'Beatriz';
+        let ROOM = 'rp_57_yoran_zoe'; let NOME_RP_ATUAL = 'RP 57 Yoran & Zoe'; let DATA = [];
+        
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+        if(ROOM === "DYNAMIC") {
+            const urlParams = new URLSearchParams(window.location.search);
+            ROOM = urlParams.get('room') || 'rp_desconhecido';
+            NOME_RP_ATUAL = urlParams.get('name') || 'Novo RP';
+            document.getElementById('ui-nome-rp').innerText = NOME_RP_ATUAL;
+        }
+        // DATA não vem mais embutido no HTML. Tudo (histórico + mensagens novas)
+        // é buscado do Firebase depois do login, em iniciarApp().
+
+        firebase.initializeApp(CONFIG); const auth = firebase.auth(); const db = firebase.database(); const storage = firebase.storage();
+        
+        if (isIOS && 'serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(regs => { for(let reg of regs) { reg.unregister(); } }); }
+
+        let messaging = null;
+        if (!isIOS) {
+            if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./firebase-messaging-sw.js').catch(console.error); }
+            try {
+                messaging = firebase.messaging();
+                messaging.onMessage((payload) => {
+                    if ("Notification" in window && Notification.permission === "granted") {
+                        new Notification(payload.notification.title || "RP World", { body: payload.notification.body, icon: './logo.png' });
+                    }
+                });
+            } catch(e) {}
+        }
+
+        const chatRef = db.ref('chats/' + ROOM); const typingRef = db.ref('typing/' + ROOM); const settingsRef = db.ref('settings/' + ROOM); const zone = document.getElementById('zone');
+        let start = 0, end = 0; const STEP = 100; let observer, activeBubble; const MEMORY_KEY = 'rp_mem_' + ROOM; let initialResumeIdx = localStorage.getItem(MEMORY_KEY); let typingTimeout;
+        let editingKey = null;
+        
+        settingsRef.child('wallpaper').on('value', snap => {
+            if(snap.val()) { document.getElementById('bg-layer').style.backgroundImage = `linear-gradient(var(--ov), var(--ov)), url('${snap.val()}')`; }
+        });
+
+        document.getElementById('bg-upload').addEventListener('change', async (e) => {
+            const file = e.target.files[0]; if(!file) return;
+            const btn = document.getElementById('bg-btn-label');
+            const originalText = btn.innerText; btn.innerText = '⏳ Enviando...';
+            try {
+                const ref = storage.ref(`wallpapers/${ROOM}/${Date.now()}_${file.name}`);
+                await ref.put(file);
+                const url = await ref.getDownloadURL();
+                await settingsRef.update({ wallpaper: url });
+                toggleFavs(); 
+            } catch (err) { alert("Erro ao atualizar papel de parede."); }
+            btn.innerText = originalText; e.target.value = '';
+        });
+
+        auth.onAuthStateChanged(user => {
+            if(!user) { window.location.href = "index.html"; return; }
+            if(user.email === EMAIL_MEU) { document.getElementById('btn-export').style.display = 'block'; }
+            
+            iniciarApp(user); 
+            marcarLidas();
+            
+            typingRef.on('value', snap => {
+                const data = snap.val(); let isTyping = false;
+                if(data) { Object.keys(data).forEach(uid => { if(uid !== user.uid && data[uid] === true) isTyping = true; }); }
+                const ti = document.getElementById('typing-indicator');
+                ti.innerText = user.email === EMAIL_MEU ? NOME_DELA + " está digitando..." : NOME_MEU + " está digitando...";
+                ti.style.display = isTyping ? 'block' : 'none';
+                if(isTyping && document.documentElement.scrollHeight - window.innerHeight - window.scrollY < 100) { window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'}); }
+            });
+        });
+
+        async function exportarTXT() {
+            if (auth.currentUser.email !== EMAIL_MEU) { alert("Acesso negado."); return; }
+            const btn = document.getElementById('btn-export');
+            btn.innerText = "⏳ Compilando Backup...";
+            try {
+                const snap = await chatRef.once('value');
+                let textoFinal = "";
+                snap.forEach(child => {
+                    const m = child.val();
+                    let dataFormatada = m.fullDate || m.data; 
+                    let textoMsg = m.texto || "";
+                    if (m.imageUrl) { textoMsg += (textoMsg ? "\n" : "") + "[IMAGEM] " + m.imageUrl; }
+                    textoFinal += `[${dataFormatada}] ${m.nome}: ${textoMsg}\n`;
+                });
+                
+                if(!textoFinal) { alert("Não há mensagens novas no Firebase para exportar."); btn.innerText = "💾 Exportar Backup TXT"; return; }
+                
+                const blob = new Blob([textoFinal], { type: "text/plain;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Conversa do WhatsApp com ${NOME_RP_ATUAL}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                toggleFavs(); 
+            } catch(e) { console.error(e); alert("Erro ao exportar backup."); }
+            btn.innerText = "💾 Exportar Backup TXT";
+        }
+
+        function toggleSearch() { const sb = document.getElementById('search-bar'); sb.style.display = sb.style.display === 'none' ? 'block' : 'none'; }
+        function doSearch() { const q = document.getElementById('search-input').value.toLowerCase(); const res = document.getElementById('search-results'); if(q.length < 3) { res.innerHTML = ''; return; } let html = ''; let count = 0; for(let i = 0; i < DATA.length; i++) { if(DATA[i].texto && DATA[i].texto.toLowerCase().includes(q)) { html += `<div class="srch-item" onclick="jumpToSearch(${i})"><span style="color:var(--accent);font-size:11px;">${DATA[i].data}</span><br>${DATA[i].texto.substring(0, 60)}...</div>`; count++; if(count > 25) break; } } res.innerHTML = html || '<div class="srch-item">Nada.</div>'; }
+        function jumpToSearch(idx) { document.getElementById('search-bar').style.display = 'none'; jump(false, idx); setTimeout(() => { const el = document.getElementById('m_' + idx); if(el) { el.style.border = '2px solid var(--accent)'; setTimeout(() => el.style.border = 'none', 2500); } }, 600); }
+
+        function fmt(t) { let res = t.trim().replace(/\*(.*?)\*/g, '<b>$1</b>'); return res.split(/\r?\n|\\n/).map(l => { let txt = l.trim(); if (txt === '') return `<div style="height:28px;"></div>`; if (txt.startsWith('- ')) return `<div class="bullet" style="margin-bottom: 14px;"><span class="bullet-dot">•</span><span>${txt.substring(2).trim()}</span></div>`; return `<div style="margin-bottom: 14px;">${txt}</div>`; }).join(''); }
+        function build(m, idx, dbKey, ts) { const id = idx !== undefined ? `m_${idx}` : `live_${dbKey}`; const attrIdx = idx !== undefined ? `data-idx="${idx}"` : ''; const attrDb = dbKey ? `data-dbkey="${dbKey}"` : ''; const attrTs = ts ? `data-ts="${ts}"` : ''; const user = auth.currentUser; let isMe = user ? (m.email ? (m.email === user.email) : (user.email === EMAIL_MEU ? m.nome === NOME_MEU : m.nome !== NOME_MEU)) : m.nome === NOME_MEU; const alignCls = isMe ? 'me' : 'them'; let isRique = m.email ? (m.email === EMAIL_MEU) : (m.nome === NOME_MEU); let colorCls = isRique ? 'bg-cinza' : 'bg-verde'; let imgHtml = m.imageUrl ? `<img src="${m.imageUrl}" class="img-msg" onclick="window.open(this.src, '_blank')">` : ''; let txtHtml = m.texto ? fmt(m.texto) : ''; let tickHtml = ''; if (isMe && dbKey) { const isRead = m.status === 'read'; tickHtml = `<span class="tick ${isRead ? 'read' : ''}">${isRead ? '✓✓' : '✓'}</span>`; } return `<div class="msg-row ${alignCls}"><div class="bubble ${colorCls}" id="${id}" ${attrIdx} ${attrDb} ${attrTs}><span class="star" onclick="fav('${id}')">★</span>${!isMe ? `<span class="nome">${m.nome}</span>` : ''}<div class="txt">${imgHtml}${txtHtml}<span class="time">${m.data} ${tickHtml}</span><div style="clear:both;"></div></div></div></div>`; }
+        function irParaLeitura() { let idx = localStorage.getItem(MEMORY_KEY); if(idx) { jump(false, parseInt(idx)); document.getElementById('drawer').classList.remove('open'); } }
+        
+        document.addEventListener('contextmenu', e => { const b = e.target.closest('.bubble'); if(b) { e.preventDefault(); activeBubble = b; const m = document.getElementById('ctx-menu'); m.style.display = 'block'; m.style.left = e.clientX + 'px'; m.style.top = e.clientY + 'px'; } }); 
+        document.addEventListener('click', e => { if(!e.target.closest('#ctx-menu')) document.getElementById('ctx-menu').style.display = 'none'; });
+        function delMsg() { if(!activeBubble) return; document.getElementById('ctx-menu').style.display = 'none'; const key = activeBubble.getAttribute('data-dbkey'); if(key && confirm("Apagar mensagem?")) chatRef.child(key).remove(); }
+        function openEditModal() { if(!activeBubble) return; document.getElementById('ctx-menu').style.display = 'none'; const key = activeBubble.getAttribute('data-dbkey'); if(!key) return; chatRef.child(key).once('value').then(snap => { const m = snap.val(); if(m && m.texto) { editingKey = key; document.getElementById('edit-input').value = m.texto; document.getElementById('edit-modal').style.display = 'flex'; } }); }
+        function closeEditModal() { document.getElementById('edit-modal').style.display = 'none'; document.getElementById('edit-input').value = ''; editingKey = null; }
+        function saveEdit() { if(!editingKey) return; const newTxt = document.getElementById('edit-input').value.trim(); if(newTxt) { chatRef.child(editingKey).update({texto: newTxt}); closeEditModal(); } }
+        
+        function setupObserver() { if(observer) observer.disconnect(); observer = new IntersectionObserver((entries) => { entries.forEach(e => { if(e.isIntersecting && e.target.hasAttribute('data-idx')) localStorage.setItem(MEMORY_KEY, e.target.getAttribute('data-idx')); }); }, { threshold: 0.1 }); document.querySelectorAll('.bubble[data-idx]').forEach(b => observer.observe(b)); }
+        function load(next) { const slice = next ? DATA.slice(end, Math.min(DATA.length, end + STEP)) : DATA.slice(Math.max(0, start - STEP), start); const html = slice.map((m, i) => build(m, next ? end + i : Math.max(0, start - STEP) + i)).join(''); if(next) { zone.insertAdjacentHTML('beforeend', html); end = Math.min(DATA.length, end + STEP); } else { const h = document.documentElement.scrollHeight; zone.insertAdjacentHTML('afterbegin', html); window.scrollTo(0, document.documentElement.scrollHeight - h); start = Math.max(0, start - STEP); } ui(); }
+        function jump(top, customIdx = null) { zone.innerHTML = ""; if(customIdx !== null) { start = Math.max(0, customIdx - 50); end = Math.min(DATA.length, start + 100); } else if(top) { start = 0; end = Math.min(DATA.length, STEP); } else { end = DATA.length; start = Math.max(0, end - STEP); } zone.innerHTML = DATA.slice(start, end).map((m, i) => build(m, start + i)).join(''); if(customIdx !== null) { setTimeout(() => { const t = document.getElementById(`m_${customIdx}`); if(t) t.scrollIntoView({behavior:'smooth', block:'center'}); }, 150); } else if(top) { window.scrollTo(0, 0); setTimeout(() => window.scrollTo(0,0), 100); } else { window.scrollTo(0, document.body.scrollHeight); setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 250); } ui(); }
+        
+        // --- FUNÇÃO UI CORRIGIDA: Esconde o Firebase enquanto a página não chegar ao fim ---
+        function ui() { 
+            document.getElementById('up').style.display = start <= 0 ? 'none' : 'block'; 
+            document.getElementById('down').style.display = end >= DATA.length ? 'none' : 'block'; 
+            document.getElementById('live-zone').style.display = end >= DATA.length ? 'block' : 'none'; 
+            setTimeout(sync, 150); setTimeout(setupObserver, 800); 
+        }
+        
+        function toggleFavs() { const d = document.getElementById('drawer'); d.classList.toggle('open'); if(d.classList.contains('open')) { const FAV_KEY = 'rp_favs_' + ROOM; const l = document.getElementById('fav-list'), f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); l.innerHTML = f.length === 0 ? '<p style="text-align:center;opacity:0.5;">Vazio.</p>' : f.map(x => `<div style="background:var(--bg);padding:12px;margin-bottom:10px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.1)" onclick="goTo('${x.id}', ${x.id.startsWith('m_') ? x.id.split('_')[1] : 'null'})">${x.t}</div>`).join(''); } }
+        function fav(id) { const FAV_KEY = 'rp_favs_' + ROOM; let f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); const el = document.getElementById(id), s = el.querySelector('.star'); if(s.classList.contains('active')) { f = f.filter(x => x.id !== id); s.classList.remove('active'); } else { f.push({id, t: el.querySelector('.txt').innerText.substring(0,35) + "..."}); s.classList.add('active'); } localStorage.setItem(FAV_KEY, JSON.stringify(f)); }
+        function sync() { const FAV_KEY = 'rp_favs_' + ROOM; const f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); f.forEach(x => { const e = document.getElementById(x.id); if(e) e.querySelector('.star').classList.add('active'); }); }
+        function goTo(id, idx) { const e = document.getElementById(id); if(!e && idx !== null) jump(false, idx); else if(e) e.scrollIntoView({behavior:'smooth', block:'center'}); document.getElementById('drawer').classList.remove('open'); }
+        async function sendToFirebase(texto, imageUrl) { const now = new Date(); const timeStr = now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}); try { await chatRef.push({ nome: auth.currentUser.email === EMAIL_MEU ? NOME_MEU : NOME_DELA, email: auth.currentUser.email, texto: texto || "", imageUrl: imageUrl || null, data: timeStr, fullDate: now.toLocaleDateString('pt-BR') + ' ' + timeStr, timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent' }); } catch(e) { console.error("Erro", e); } }
+        async function sendMessage() { const input = document.getElementById('msg-input'); const text = input.value.trim(); if(!text) return; const btn = document.getElementById('send-btn'); btn.disabled = true; await sendToFirebase(text, null); input.value = ""; input.style.height = 'auto'; btn.disabled = false; typingRef.child(auth.currentUser.uid).set(false); }
+        document.getElementById('image-upload').addEventListener('change', async (e) => { const file = e.target.files[0]; if(!file) return; const btn = document.getElementById('send-btn'); const fileBtn = document.getElementById('file-btn'); const originalIcon = fileBtn.innerText; btn.disabled = true; fileBtn.innerText = '⏳'; try { const fileRef = storage.ref(`rp_images/${ROOM}/${Date.now()}_${file.name}`); await fileRef.put(file); const url = await fileRef.getDownloadURL(); await sendToFirebase('', url); } catch (err) { alert("Erro ao enviar imagem."); } btn.disabled = false; fileBtn.innerText = originalIcon; e.target.value = ''; });
+        
+        let isTypingNow = false;
+        document.getElementById('msg-input').addEventListener('input', (e) => { 
+            const user = auth.currentUser; if(!user) return; 
+            if(e.target.value.trim().length > 0) { 
+                if(!isTypingNow) { isTypingNow = true; typingRef.child(user.uid).set(true); }
+                clearTimeout(typingTimeout); typingTimeout = setTimeout(() => { isTypingNow = false; typingRef.child(user.uid).set(false); }, 2500); 
+            } else { isTypingNow = false; typingRef.child(user.uid).set(false); } 
+        });
+        
+        function marcarLidas() { 
+            if(!auth.currentUser) return;
+            chatRef.orderByChild('status').equalTo('sent').once('value', snap => { 
+                snap.forEach(child => { 
+                    const msg = child.val(); 
+                    let isMeLocal = msg.email ? (msg.email === auth.currentUser.email) : (auth.currentUser.email === EMAIL_MEU ? msg.nome === NOME_MEU : msg.nome !== NOME_MEU); 
+                    if(!isMeLocal) { child.ref.update({ status: 'read' }); } 
+                }); 
+            }); 
+        }
+
+        // --- MOTOR DEFINITIVO (Alta Performance + Prevenção de Saltos) ---
+        // Todo o conteúdo (histórico importado + mensagens novas) mora só no Firebase agora.
+        // Busca-se TUDO uma vez (ordenado por timestamp), popula DATA, e só depois disso
+        // se escuta por mensagens novas com 'startAfter' -- isso evita reprocessar/duplicar
+        // o que já foi carregado no fetch inicial.
+        function iniciarApp(user) { 
+            chatRef.off(); 
+            const lz = document.getElementById('live-zone'); lz.innerHTML = ''; 
+
+            chatRef.orderByChild('timestamp').once('value').then(snap => {
+                let ultimoTimestamp = 0;
+                DATA = [];
+                snap.forEach(child => {
+                    DATA.push(child.val());
+                    const ts = child.val().timestamp || 0;
+                    if (ts > ultimoTimestamp) ultimoTimestamp = ts;
+                });
+
+                initialResumeIdx && parseInt(initialResumeIdx) < DATA.length - 15 ? jump(false, parseInt(initialResumeIdx)) : jump(false);
+                sync(); setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 150);
+
+                chatRef.orderByChild('timestamp').startAfter(ultimoTimestamp).on('child_added', childSnap => {
+                    if(!document.getElementById(`live_${childSnap.key}`)) {
+                        const isAtBottom = (document.documentElement.scrollHeight - window.innerHeight - window.scrollY) < 150;
+                        lz.insertAdjacentHTML('beforeend', build(childSnap.val(), undefined, childSnap.key, childSnap.val().timestamp)); 
+                        
+                        // Proteção adicionada: só rola sozinho se o bloco estático inteiro já foi carregado
+                        if (isAtBottom && end >= DATA.length) window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'});
+                        
+                        if (childSnap.val().email !== user.email && document.visibilityState === 'visible') chatRef.child(childSnap.key).update({ status: 'read' });
+                    }
+                });
+                chatRef.on('child_changed', s => { const el = document.querySelector(`[data-dbkey="${s.key}"]`); if(el) el.closest('.msg-row').outerHTML = build(s.val(), undefined, s.key, s.val().timestamp); }); 
+                chatRef.on('child_removed', s => { const el = document.querySelector(`[data-dbkey="${s.key}"]`); if(el) el.closest('.msg-row').remove(); });
+            });
+        }
+        document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') { marcarLidas(); firebase.database().goOnline(); } });
+    </script>
+</body>
+</html>

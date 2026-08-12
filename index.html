@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>RP World - Hub</title>
+    <link rel="manifest" href="./manifest.json?v=2">
+    <link rel="apple-touch-icon" href="./logo.png?v=2">
+    <meta name="theme-color" content="#00a884">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    
+    <script src="hub_data.js"></script>
+
+    <style>
+        :root { --bg: #070a0e; --nav: #0b141a; --accent: #00d2b4; --tarot-glow: #00e0ff; --text: #e9edef; --overlay: rgba(7, 10, 14, 0.85); --alert: #ff5252; --fav: #ffcc00; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Cinzel', -apple-system, sans-serif; }
+        
+        #bg-layer { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background-image: linear-gradient(var(--overlay), var(--overlay)), url('plano_fundo.png'); background-size: cover; background-position: center; transition: 0.3s; pointer-events: none; }
+        body { margin: 0; padding: 0; background-color: var(--bg); color: var(--text); user-select: none; }
+        
+        #login-screen { position: fixed; top:0; left:0; width:100%; height:100%; background-color: var(--bg); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        #login-screen h1 { color: var(--tarot-glow); margin-bottom: 30px; font-size: 32px; text-shadow: 0 0 10px var(--tarot-glow); }
+        #login-screen input { width: 100%; max-width: 300px; padding: 15px; margin-bottom: 12px; border-radius: 8px; border: 1px solid var(--tarot-glow); background: rgba(42, 57, 66, 0.6); color: white; font-size: 16px; outline: none;}
+        #login-screen button { width: 100%; max-width: 300px; padding: 15px; border-radius: 8px; border: none; background: var(--tarot-glow); color: #000; font-weight: bold; cursor: pointer; font-size: 16px; box-shadow: 0 0 15px rgba(0, 224, 255, 0.4); }
+        
+        #hub-core { display: none; padding: 20px; max-width: 800px; margin: 0 auto; padding-bottom: 100px;}
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; margin-top: 10px; padding-bottom: 15px; border-bottom: 2px solid var(--accent); }
+        .header h2 { margin: 0; font-size: 22px; transition: 0.3s; }
+        #hub-title { color: var(--tarot-glow); text-shadow: 0 0 8px var(--tarot-glow); }
+        .hub-count { font-size: 16px; opacity: 0.8; }
+        #offline-badge { display: none; color: #8696a0; font-size: 14px; margin-left: 8px; font-weight: bold; text-shadow: none; }
+        
+        .header-btns { display: flex; gap: 10px; }
+        .btn-header { background: #2a3942; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        .btn-notif { background: var(--tarot-glow); color: black; display:none; }
+        
+        .hub-search-container { margin-bottom: 20px; }
+        .hub-search-input { width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid var(--tarot-glow); background: rgba(11, 20, 26, 0.8); color: white; font-size: 16px; outline: none; box-shadow: 0 2px 8px rgba(0,0,0,0.5); transition: 0.3s; }
+        .hub-search-input:focus { box-shadow: 0 0 12px var(--tarot-glow); background: #1c2a33; }
+        
+        .categoria-titulo { color: var(--tarot-glow); margin-top: 30px; margin-bottom: 20px; padding-bottom: 10px; font-size: 20px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(0, 224, 255, 0.2); text-shadow: 0 0 5px rgba(0, 224, 255, 0.3); }
+        .categoria-alerta { color: var(--alert); border-bottom-color: rgba(255, 82, 82, 0.3); text-shadow: 0 0 8px rgba(255, 82, 82, 0.5); }
+        .categoria-fav { color: var(--fav); border-bottom-color: rgba(255, 204, 0, 0.3); text-shadow: 0 0 8px rgba(255, 204, 0, 0.5); }
+        .categoria-historico { color: #b388ff; border-bottom-color: rgba(179, 136, 255, 0.3); text-shadow: 0 0 8px rgba(179, 136, 255, 0.5); }
+
+        .rp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 18px; margin-bottom: 10px;}
+        .rp-card { position: relative; background: var(--nav); border-radius: 12px; padding: 20px 15px; text-align: center; text-decoration: none; color: white; transition: 0.2s ease-out; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 140px; border: 1px solid rgba(0, 224, 255, 0.1); box-shadow: 0 4px 6px rgba(0,0,0,0.4); }
+        .rp-card:active { transform: translateY(-5px) scale(1.02); background: rgba(11, 20, 26, 0.8); border-color: var(--tarot-glow); box-shadow: 0 0 15px var(--tarot-glow); }
+        .rp-tarot-card { font-size: 44px; margin-bottom: 12px; position: relative; display: inline-block; color: var(--tarot-glow); text-shadow: 0 0 12px var(--tarot-glow), 0 0 20px var(--tarot-glow); }
+        .rp-title { font-weight: bold; font-size: 15px; line-height: 1.3; color: var(--text); }
+        .unread-dot { position: absolute; top: 12px; left: 12px; width: 14px; height: 14px; background-color: var(--alert); border-radius: 50%; box-shadow: 0 0 10px var(--alert); z-index: 10; border: 2px solid var(--nav); }
+        .rp-fav-btn { position: absolute; top: 8px; left: 8px; font-size: 22px; color: #40525c; cursor: pointer; z-index: 15; transition: 0.2s; text-shadow: 0 1px 3px rgba(0,0,0,0.8); padding: 5px; }
+        .rp-fav-btn.active { color: var(--fav); text-shadow: 0 0 10px var(--fav); }
+        .del-btn { position: absolute; top: 8px; right: 8px; background: rgba(255, 50, 50, 0.15); border: 1px solid rgba(255, 50, 50, 0.4); border-radius: 6px; padding: 6px; font-size: 14px; cursor: pointer; z-index: 10; transition: 0.2s; }
+        .fab-btn { position: fixed; bottom: 30px; right: 30px; background: var(--tarot-glow); color: #000; width: 65px; height: 65px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; box-shadow: 0 4px 15px rgba(0, 224, 255, 0.5), 0 0 25px rgba(0, 224, 255, 0.3); border: none; cursor: pointer; z-index: 5000; transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
+    </style>
+</head>
+<body>
+    <div id="bg-layer"></div>
+    <div id="login-screen">
+        <h1>RP World</h1>
+        <input type="email" id="email-in" placeholder="E-mail" autocapitalize="none">
+        <input type="password" id="pass-in" placeholder="Senha">
+        <button id="btn-login" onclick="fazerLogin()">Entrar</button>
+        <p id="msg-erro" style="color:#ff5252; font-size:14px; margin-top:10px; text-align:center; font-weight:bold;"></p>
+    </div>
+
+    <div id="hub-core">
+        <div class="header">
+            <h2><span id="hub-title">RP World</span> <span class="hub-count" id="rp-count"></span><span id="offline-badge">(Offline ⚠️)</span></h2>
+            <div class="header-btns">
+                <button class="btn-header btn-notif" id="btn-pedir-notif" onclick="pedirPermissao()">🔔 Ligar Avisos</button>
+                <button class="btn-header" onclick="deslogar()">Sair</button>
+            </div>
+        </div>
+        <div class="hub-search-container"><input type="text" id="hub-search" class="hub-search-input" placeholder="🔍 Buscar história por nome..." oninput="renderizarBotoes()"></div>
+        <div id="rp-container"></div>
+        <button class="fab-btn" onclick="criarNovoRP()">+</button>
+    </div>
+
+    <script>
+        const FIREBASE_CONFIG = {"apiKey": "AIzaSyACCEuWDQN7mqsrtkA7FR7zmdDvVIPvxdU", "authDomain": "rp-world-f3fc1.firebaseapp.com", "databaseURL": "https://rp-world-f3fc1-default-rtdb.firebaseio.com", "projectId": "rp-world-f3fc1", "storageBucket": "rp-world-f3fc1.firebasestorage.app", "messagingSenderId": "789300849203", "appId": "1:789300849203:web:eeec4b2b106f4839e81146"};
+        firebase.initializeApp(FIREBASE_CONFIG);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+        function iniciarMotorDeNotificacoes() {
+            if (isIOS) return; 
+            try {
+                if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./firebase-messaging-sw.js').catch(e=>console.log(e)); }
+                const messaging = firebase.messaging();
+                messaging.onMessage((payload) => {
+                    if ("Notification" in window && Notification.permission === "granted") {
+                        new Notification(payload.notification.title || "RP World", { body: payload.notification.body, icon: './logo.png' });
+                    }
+                });
+            } catch(e) {}
+        }
+        
+        function pedirPermissao() {
+            if ("Notification" in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        document.getElementById('btn-pedir-notif').style.display = 'none';
+                        iniciarMotorDeNotificacoes();
+                    }
+                });
+            }
+        }
+
+        const EMAIL_ADMIN = "henrique.mdasilva1994@gmail.com";
+        let RPs_Estaticos = typeof LISTA_RPS !== 'undefined' ? [...LISTA_RPS] : [];
+        let RPs_Dinamicos = [];
+        let unreadStatus = {}; 
+        let listenersAtivos = {};
+
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        function updateOnlineStatus() {
+            const badge = document.getElementById('offline-badge'); const title = document.getElementById('hub-title');
+            if(!navigator.onLine) { badge.style.display = 'inline'; title.style.color = '#8696a0'; title.style.textShadow = 'none'; } 
+            else { badge.style.display = 'none'; title.style.color = 'var(--tarot-glow)'; title.style.textShadow = '0 0 8px var(--tarot-glow)'; }
+        }
+
+        function toggleHubFav(event, link) {
+            event.preventDefault(); event.stopPropagation();
+            let favs = JSON.parse(localStorage.getItem('hub_fav_rps') || '[]');
+            if(favs.includes(link)) { favs = favs.filter(l => l !== link); } else { favs.push(link); }
+            localStorage.setItem('hub_fav_rps', JSON.stringify(favs));
+            renderizarBotoes();
+        }
+
+        function registrarAcesso(link) { let acessos = JSON.parse(localStorage.getItem('hub_recent_rps') || '{}'); acessos[link] = Date.now(); localStorage.setItem('hub_recent_rps', JSON.stringify(acessos)); }
+        function deletarRP(event, id, nome) { event.preventDefault(); event.stopPropagation(); if (confirm(`Tem certeza que deseja apagar o RP "${nome}" permanentemente?`)) { db.ref('hub_rps_dinamicos/' + id).remove(); } }
+
+        function criarCardHTML(rpObj, nomeLimpo, isUnread, isFav) {
+            let botaoApagar = ""; let dotNotificacao = isUnread ? `<div class="unread-dot"></div>` : ""; let favAtivo = isFav ? "active" : "";
+            if (rpObj.isDinamico && auth.currentUser && auth.currentUser.email === EMAIL_ADMIN) { botaoApagar = `<div class="del-btn" onclick="deletarRP(event, '${rpObj.id}', '${nomeLimpo}')">🗑️</div>`; }
+            return `<a href="${rpObj.link}" class="rp-card" onclick="registrarAcesso('${rpObj.link}')"> <div class="rp-fav-btn ${favAtivo}" onclick="toggleHubFav(event, '${rpObj.link}')">★</div> ${botaoApagar} ${dotNotificacao} <div class="rp-tarot-card">🎴</div> <div class="rp-title">${nomeLimpo}</div> </a>`;
+        }
+
+        function renderizarBotoes() {
+            const container = document.getElementById('rp-container'); container.innerHTML = '';
+            const termoBusca = document.getElementById('hub-search') ? document.getElementById('hub-search').value.toLowerCase() : "";
+            const listaCompleta = [...RPs_Estaticos, ...RPs_Dinamicos];
+            
+            document.getElementById('rp-count').innerText = `(${listaCompleta.length})`; updateOnlineStatus(); 
+            const listaFiltrada = listaCompleta.filter(rp => rp.nome.toLowerCase().includes(termoBusca));
+            if (listaFiltrada.length === 0) { container.innerHTML = '<p style="text-align:center; opacity: 0.5; margin-top: 50px;">Nenhuma história encontrada.</p>'; return; }
+
+            let favsLocais = JSON.parse(localStorage.getItem('hub_fav_rps') || '[]'); let acessosLocais = JSON.parse(localStorage.getItem('hub_recent_rps') || '{}');
+            let rpsHistorico = []; let rpsNaoLidos = []; let rpsFavoritos = []; let rpRikiKeiko = null; let rpsNumerados = []; let rpsOutros = [];
+
+            listaFiltrada.forEach(rp => {
+                let nomeLimpo = rp.nome.replace(/\s*\(\d+\)\s*$/, '').trim();
+                const nomeLower = nomeLimpo.toLowerCase();
+                let rpKey = rp.id; if(!rpKey) { const match = rp.link.match(/(?:rp_|room=)([^&.]+)/); if(match) rpKey = match[1]; }
+
+                const isUnread = rpKey ? unreadStatus[rpKey] : false;
+                const isFav = favsLocais.includes(rp.link);
+                const lastOpened = acessosLocais[rp.link] || 0;
+                let itemData = { rpObj: rp, nomeDisplay: nomeLimpo, isUnread: isUnread, isFav: isFav, lastOpened: lastOpened };
+
+                if (rp.historico) rpsHistorico.push(itemData);
+                if (isUnread) rpsNaoLidos.push(itemData);
+                if (isFav) rpsFavoritos.push(itemData);
+
+                if (nomeLower.includes("riki") && nomeLower.includes("keiko")) { rpRikiKeiko = itemData; } 
+                else { const matchNumero = nomeLimpo.match(/rp\s*(\d+)/i); if (matchNumero) { itemData.numero = parseInt(matchNumero[1], 10); rpsNumerados.push(itemData); } else { rpsOutros.push(itemData); } }
+            });
+
+            const sortRecentes = (a, b) => b.lastOpened - a.lastOpened;
+            rpsHistorico.sort(sortRecentes); rpsNaoLidos.sort(sortRecentes); rpsFavoritos.sort(sortRecentes);
+            rpsNumerados.sort((a, b) => { if(b.lastOpened !== a.lastOpened) return b.lastOpened - a.lastOpened; return a.numero - b.numero; });
+            rpsOutros.sort((a, b) => { if(b.lastOpened !== a.lastOpened) return b.lastOpened - a.lastOpened; return a.nomeDisplay.localeCompare(b.nomeDisplay); });
+
+            let htmlFinal = '';
+            if (rpsHistorico.length > 0) { htmlFinal += `<h3 class="categoria-titulo categoria-historico">📼 Histórico de WhatsApp</h3><div class="rp-grid">`; rpsHistorico.forEach(item => htmlFinal += criarCardHTML(item.rpObj, item.nomeDisplay, item.isUnread, item.isFav)); htmlFinal += `</div>`; }
+            if (rpsNaoLidos.length > 0) { htmlFinal += `<h3 class="categoria-titulo categoria-alerta">🔴 Ações Não Lidas</h3><div class="rp-grid">`; rpsNaoLidos.forEach(item => htmlFinal += criarCardHTML(item.rpObj, item.nomeDisplay, item.isUnread, item.isFav)); htmlFinal += `</div>`; }
+            if (rpsFavoritos.length > 0) { htmlFinal += `<h3 class="categoria-titulo categoria-fav">⭐ RPs Favoritos</h3><div class="rp-grid">`; rpsFavoritos.forEach(item => htmlFinal += criarCardHTML(item.rpObj, item.nomeDisplay, item.isUnread, item.isFav)); htmlFinal += `</div>`; }
+            if (rpRikiKeiko || rpsNumerados.length > 0) { htmlFinal += `<h3 class="categoria-titulo">📜 RPs Principais</h3><div class="rp-grid">`; if (rpRikiKeiko) htmlFinal += criarCardHTML(rpRikiKeiko.rpObj, rpRikiKeiko.nomeDisplay, rpRikiKeiko.isUnread, rpRikiKeiko.isFav); rpsNumerados.forEach(item => htmlFinal += criarCardHTML(item.rpObj, item.nomeDisplay, item.isUnread, item.isFav)); htmlFinal += `</div>`; }
+            if (rpsOutros.length > 0) { htmlFinal += `<h3 class="categoria-titulo">📂 Outros RPs</h3><div class="rp-grid">`; rpsOutros.forEach(item => htmlFinal += criarCardHTML(item.rpObj, item.nomeDisplay, item.isUnread, item.isFav)); htmlFinal += `</div>`; }
+            container.innerHTML = htmlFinal;
+        }
+
+        function criarNovoRP() {
+            const nomeNovo = prompt("Qual o nome do Novo RP?"); if(!nomeNovo || nomeNovo.trim() === "") return;
+            const roomId = "dyn_" + Date.now();
+            db.ref('hub_rps_dinamicos/' + roomId).set({ nome: nomeNovo.trim(), link: `chat_dinamico.html?room=${roomId}&name=${encodeURIComponent(nomeNovo.trim())}` });
+        }
+
+        function iniciarListenersDeBolinhas() {
+            if(!auth.currentUser) return;
+            const listaCompleta = [...RPs_Estaticos, ...RPs_Dinamicos];
+            
+            listaCompleta.forEach(rp => {
+                let rpKey = rp.id;
+                if(!rpKey) { const match = rp.link.match(/(?:rp_|room=)([^&.]+)/); if(match) rpKey = match[1]; }
+                
+                if (rpKey && !listenersAtivos[rpKey]) {
+                    listenersAtivos[rpKey] = true;
+                    db.ref('chats/' + rpKey).limitToLast(15).on('value', msgsSnap => {
+                        let temNova = false;
+                        if (msgsSnap.exists()) { msgsSnap.forEach(msgChild => { const msg = msgChild.val(); if (msg.status === 'sent' && msg.email !== auth.currentUser.email) { temNova = true; } }); }
+                        unreadStatus[rpKey] = temNova; renderizarBotoes(); 
+                    });
+                }
+            });
+        }
+
+        db.ref('hub_rps_dinamicos').on('value', snap => {
+            const dados = snap.val(); RPs_Dinamicos = [];
+            if(dados) { Object.keys(dados).forEach(key => { let rp = dados[key]; rp.id = key; rp.isDinamico = true; RPs_Dinamicos.push(rp); }); }
+            if(auth.currentUser) { renderizarBotoes(); iniciarListenersDeBolinhas(); }
+        });
+
+        function fazerLogin() { 
+            const e = document.getElementById('email-in').value.trim(); const p = document.getElementById('pass-in').value; const btn = document.getElementById('btn-login'); const errBox = document.getElementById('msg-erro'); 
+            errBox.innerText = ""; if(!e || !p) { errBox.innerText = "Preencha e-mail e senha."; return; } btn.innerText = "Carregando..."; 
+            auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(() => auth.signInWithEmailAndPassword(e, p)).then(() => { btn.innerText = "Entrar"; }).catch(err => { btn.innerText = "Entrar"; errBox.innerText = "Erro: " + err.message; }); 
+        }
+
+        function deslogar() { auth.signOut(); }
+
+        auth.onAuthStateChanged(user => {
+            if(user) {
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('hub-core').style.display = 'block';
+                Object.keys(listenersAtivos).forEach(key => { listenersAtivos[key] = false; });
+                
+                renderizarBotoes(); 
+                iniciarListenersDeBolinhas();
+                
+                if ("Notification" in window) {
+                    if (Notification.permission === "granted") { iniciarMotorDeNotificacoes(); } 
+                    else if (Notification.permission !== "denied" && !isIOS) { document.getElementById('btn-pedir-notif').style.display = 'block'; }
+                }
+            } else {
+                document.getElementById('login-screen').style.display = 'flex';
+                document.getElementById('hub-core').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
