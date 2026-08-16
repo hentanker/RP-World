@@ -79,7 +79,6 @@
         </div>
         <div class="hub-search-container"><input type="text" id="hub-search" class="hub-search-input" placeholder="🔍 Buscar história por nome..." oninput="renderizarBotoes()"></div>
         <div id="rp-container"></div>
-        <button class="fab-btn" onclick="criarNovoRP()">+</button>
     </div>
 
     <script>
@@ -181,11 +180,11 @@
             rpsOutros.sort((a, b) => { if(b.lastOpened !== a.lastOpened) return b.lastOpened - a.lastOpened; return a.nomeDisplay.localeCompare(b.nomeDisplay); });
 
             let htmlFinal = '';
-            if (rpsHistorico.length > 0) { htmlFinal += `<h3 class="categoria-titulo categoria-historico">📼 Histórico de WhatsApp</h3><div class="rp-grid">`; rpsHistorico.forEach(item => htmlFinal += criarCardHTML(item.rpObj, item.nomeDisplay, item.isUnread, item.isFav)); htmlFinal += `</div>`; }
             if (rpsNaoLidos.length > 0) { htmlFinal += `<h3 class="categoria-titulo categoria-alerta">🔴 Ações Não Lidas</h3><div class="rp-grid">`; rpsNaoLidos.forEach(item => htmlFinal += criarCardHTML(item.rpObj, item.nomeDisplay, item.isUnread, item.isFav)); htmlFinal += `</div>`; }
             if (rpsFavoritos.length > 0) { htmlFinal += `<h3 class="categoria-titulo categoria-fav">⭐ RPs Favoritos</h3><div class="rp-grid">`; rpsFavoritos.forEach(item => htmlFinal += criarCardHTML(item.rpObj, item.nomeDisplay, item.isUnread, item.isFav)); htmlFinal += `</div>`; }
             if (rpRikiKeiko || rpsNumerados.length > 0) { htmlFinal += `<h3 class="categoria-titulo">📜 RPs Principais</h3><div class="rp-grid">`; if (rpRikiKeiko) htmlFinal += criarCardHTML(rpRikiKeiko.rpObj, rpRikiKeiko.nomeDisplay, rpRikiKeiko.isUnread, rpRikiKeiko.isFav); rpsNumerados.forEach(item => htmlFinal += criarCardHTML(item.rpObj, item.nomeDisplay, item.isUnread, item.isFav)); htmlFinal += `</div>`; }
             if (rpsOutros.length > 0) { htmlFinal += `<h3 class="categoria-titulo">📂 Outros RPs</h3><div class="rp-grid">`; rpsOutros.forEach(item => htmlFinal += criarCardHTML(item.rpObj, item.nomeDisplay, item.isUnread, item.isFav)); htmlFinal += `</div>`; }
+            if (rpsHistorico.length > 0) { htmlFinal += `<h3 class="categoria-titulo categoria-historico">📼 Histórico de WhatsApp</h3><div class="rp-grid">`; rpsHistorico.forEach(item => htmlFinal += criarCardHTML(item.rpObj, item.nomeDisplay, item.isUnread, item.isFav)); htmlFinal += `</div>`; }
             container.innerHTML = htmlFinal;
         }
 

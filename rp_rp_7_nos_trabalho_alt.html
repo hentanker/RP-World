@@ -60,7 +60,6 @@
         .edit-box h3 { color: var(--accent); margin-top: 0; margin-bottom: 15px; font-size: 18px; }
         .edit-box textarea { width: 100%; height: 200px; background: #2a3942; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: white; padding: 12px; font-size: 15px; resize: none; outline: none; margin-bottom: 15px; font-family: inherit; }
         .btn-save { background: var(--accent); color: black; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; }
-        #btn-export { display: none; width: 100%; padding: 12px; margin-bottom: 10px; background: rgba(0, 168, 132, 0.2); color: #00a884; border: 1px solid #00a884; border-radius: 8px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -78,9 +77,9 @@
 
     <div id="drawer">
         <h3 style="color:var(--accent); margin-top:0;">Opções</h3>
-        <button id="btn-export" onclick="exportarTXT()">💾 Exportar Backup TXT</button>
         <input type="file" id="bg-upload" accept="image/*" style="display: none;">
         <button id="bg-btn-label" onclick="document.getElementById('bg-upload').click()" style="width:100%; padding:12px; margin-bottom:10px; background:#2a3942; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">🖼️ Mudar Fundo</button>
+        <button onclick="inverterLados()" style="width:100%; padding:12px; margin-bottom:10px; background:#2a3942; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">🔄 Inverter Lados</button>
         <button onclick="irParaLeitura()" style="width:100%; padding:12px; margin-bottom:10px; background:#2a3942; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">📖 Ir para última leitura</button>
         <h3 style="color:var(--accent);">⭐ Favoritos</h3>
         <div id="fav-list"></div>
@@ -109,18 +108,10 @@
         <div id="down" class="btn-nav" onclick="load(true)" style="display:none;">▼ Próximas ▼</div>
         <div id="live-zone" style="display:none;"></div>
     </div>
-    
-    <div id="typing-indicator"></div>
-    <div class="input-area">
-        <input type="file" id="image-upload" accept="image/*" style="display: none;">
-        <button class="file-btn" id="file-btn" onclick="document.getElementById('image-upload').click()">📎</button>
-        <textarea id="msg-input" placeholder="Mensagem..." rows="1" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
-        <button id="send-btn" onclick="sendMessage()">➤</button>
-    </div>
 
     <script>
         const CONFIG = {"apiKey": "AIzaSyACCEuWDQN7mqsrtkA7FR7zmdDvVIPvxdU", "authDomain": "rp-world-f3fc1.firebaseapp.com", "databaseURL": "https://rp-world-f3fc1-default-rtdb.firebaseio.com", "projectId": "rp-world-f3fc1", "storageBucket": "rp-world-f3fc1.firebasestorage.app", "messagingSenderId": "789300849203", "appId": "1:789300849203:web:eeec4b2b106f4839e81146"}; 
-        const EMAIL_MEU = 'henrique.mdasilva1994@gmail.com'; const NOME_MEU = 'Henrique'; const NOME_DELA = 'Beatriz';
+        const EMAIL_MEU = 'henrique.mdasilva1994@gmail.com'; const NOME_MEU = 'Rique'; const NOME_DELA = 'Bea';
         let ROOM = 'rp_7_nos_trabalho_alt'; let NOME_RP_ATUAL = 'RP 7 Nós ❤️ Trabalho alt'; let DATA = [];
         
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -151,13 +142,12 @@
             } catch(e) {}
         }
 
-        const chatRef = db.ref('chats/' + ROOM); const typingRef = db.ref('typing/' + ROOM); const settingsRef = db.ref('settings/' + ROOM); const zone = document.getElementById('zone');
-        let start = 0, end = 0; const STEP = 100; let observer, activeBubble; const MEMORY_KEY = 'rp_mem_' + ROOM; let initialResumeIdx = localStorage.getItem(MEMORY_KEY); let typingTimeout;
+        const chatRef = db.ref('chats/' + ROOM); const settingsRef = db.ref('settings/' + ROOM); const zone = document.getElementById('zone');
+        let start = 0, end = 0; const STEP = 100; let observer, activeBubble; const MEMORY_KEY = 'rp_mem_' + ROOM; let initialResumeIdx = localStorage.getItem(MEMORY_KEY);
         let editingKey = null;
-        
-        settingsRef.child('wallpaper').on('value', snap => {
-            if(snap.val()) { document.getElementById('bg-layer').style.backgroundImage = `linear-gradient(var(--ov), var(--ov)), url('${snap.val()}')`; }
-        });
+        let NOME_A = null, NOME_B = null, LADO_INVERTIDO = false;
+
+        function inverterLados() { settingsRef.update({ lado_invertido: !LADO_INVERTIDO }); }
 
         document.getElementById('bg-upload').addEventListener('change', async (e) => {
             const file = e.target.files[0]; if(!file) return;
@@ -175,58 +165,16 @@
 
         auth.onAuthStateChanged(user => {
             if(!user) { window.location.href = "index.html"; return; }
-            if(user.email === EMAIL_MEU) { document.getElementById('btn-export').style.display = 'block'; }
-            
             iniciarApp(user); 
             marcarLidas();
-            
-            typingRef.on('value', snap => {
-                const data = snap.val(); let isTyping = false;
-                if(data) { Object.keys(data).forEach(uid => { if(uid !== user.uid && data[uid] === true) isTyping = true; }); }
-                const ti = document.getElementById('typing-indicator');
-                ti.innerText = user.email === EMAIL_MEU ? NOME_DELA + " está digitando..." : NOME_MEU + " está digitando...";
-                ti.style.display = isTyping ? 'block' : 'none';
-                if(isTyping && document.documentElement.scrollHeight - window.innerHeight - window.scrollY < 100) { window.scrollTo({top: document.body.scrollHeight, behavior: 'smooth'}); }
-            });
         });
-
-        async function exportarTXT() {
-            if (auth.currentUser.email !== EMAIL_MEU) { alert("Acesso negado."); return; }
-            const btn = document.getElementById('btn-export');
-            btn.innerText = "⏳ Compilando Backup...";
-            try {
-                const snap = await chatRef.once('value');
-                let textoFinal = "";
-                snap.forEach(child => {
-                    const m = child.val();
-                    let dataFormatada = m.fullDate || m.data; 
-                    let textoMsg = m.texto || "";
-                    if (m.imageUrl) { textoMsg += (textoMsg ? "\n" : "") + "[IMAGEM] " + m.imageUrl; }
-                    textoFinal += `[${dataFormatada}] ${m.nome}: ${textoMsg}\n`;
-                });
-                
-                if(!textoFinal) { alert("Não há mensagens novas no Firebase para exportar."); btn.innerText = "💾 Exportar Backup TXT"; return; }
-                
-                const blob = new Blob([textoFinal], { type: "text/plain;charset=utf-8" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Conversa do WhatsApp com ${NOME_RP_ATUAL}.txt`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                toggleFavs(); 
-            } catch(e) { console.error(e); alert("Erro ao exportar backup."); }
-            btn.innerText = "💾 Exportar Backup TXT";
-        }
 
         function toggleSearch() { const sb = document.getElementById('search-bar'); sb.style.display = sb.style.display === 'none' ? 'block' : 'none'; }
         function doSearch() { const q = document.getElementById('search-input').value.toLowerCase(); const res = document.getElementById('search-results'); if(q.length < 3) { res.innerHTML = ''; return; } let html = ''; let count = 0; for(let i = 0; i < DATA.length; i++) { if(DATA[i].texto && DATA[i].texto.toLowerCase().includes(q)) { html += `<div class="srch-item" onclick="jumpToSearch(${i})"><span style="color:var(--accent);font-size:11px;">${DATA[i].data}</span><br>${DATA[i].texto.substring(0, 60)}...</div>`; count++; if(count > 25) break; } } res.innerHTML = html || '<div class="srch-item">Nada.</div>'; }
         function jumpToSearch(idx) { document.getElementById('search-bar').style.display = 'none'; jump(false, idx); setTimeout(() => { const el = document.getElementById('m_' + idx); if(el) { el.style.border = '2px solid var(--accent)'; setTimeout(() => el.style.border = 'none', 2500); } }, 600); }
 
         function fmt(t) { let res = t.trim().replace(/\*(.*?)\*/g, '<b>$1</b>'); return res.split(/\r?\n|\\n/).map(l => { let txt = l.trim(); if (txt === '') return `<div style="height:28px;"></div>`; if (txt.startsWith('- ')) return `<div class="bullet" style="margin-bottom: 14px;"><span class="bullet-dot">•</span><span>${txt.substring(2).trim()}</span></div>`; return `<div style="margin-bottom: 14px;">${txt}</div>`; }).join(''); }
-        function build(m, idx, dbKey, ts) { const id = idx !== undefined ? `m_${idx}` : `live_${dbKey}`; const attrIdx = idx !== undefined ? `data-idx="${idx}"` : ''; const attrDb = dbKey ? `data-dbkey="${dbKey}"` : ''; const attrTs = ts ? `data-ts="${ts}"` : ''; const user = auth.currentUser; let isMe = user ? (m.email ? (m.email === user.email) : (user.email === EMAIL_MEU ? m.nome === NOME_MEU : m.nome !== NOME_MEU)) : m.nome === NOME_MEU; const alignCls = isMe ? 'me' : 'them'; let isRique = m.email ? (m.email === EMAIL_MEU) : (m.nome === NOME_MEU); let colorCls = isRique ? 'bg-cinza' : 'bg-verde'; let imgHtml = m.imageUrl ? `<img src="${m.imageUrl}" class="img-msg" onclick="window.open(this.src, '_blank')">` : ''; let txtHtml = m.texto ? fmt(m.texto) : ''; let tickHtml = ''; if (isMe && dbKey) { const isRead = m.status === 'read'; tickHtml = `<span class="tick ${isRead ? 'read' : ''}">${isRead ? '✓✓' : '✓'}</span>`; } return `<div class="msg-row ${alignCls}"><div class="bubble ${colorCls}" id="${id}" ${attrIdx} ${attrDb} ${attrTs}><span class="star" onclick="fav('${id}')">★</span>${!isMe ? `<span class="nome">${m.nome}</span>` : ''}<div class="txt">${imgHtml}${txtHtml}<span class="time">${m.data} ${tickHtml}</span><div style="clear:both;"></div></div></div></div>`; }
+        function build(m, idx, dbKey, ts) { const id = idx !== undefined ? `m_${idx}` : `live_${dbKey}`; const attrIdx = idx !== undefined ? `data-idx="${idx}"` : ''; const attrDb = dbKey ? `data-dbkey="${dbKey}"` : ''; const attrTs = ts ? `data-ts="${ts}"` : ''; const nomeDireita = LADO_INVERTIDO ? NOME_B : NOME_A; let isMe = (nomeDireita !== null) && (m.nome === nomeDireita); const alignCls = isMe ? 'me' : 'them'; let imgHtml = m.imageUrl ? `<img src="${m.imageUrl}" class="img-msg" onclick="window.open(this.src, '_blank')">` : ''; let txtHtml = m.texto ? fmt(m.texto) : ''; let tickHtml = ''; if (isMe && dbKey) { const isRead = m.status === 'read'; tickHtml = `<span class="tick ${isRead ? 'read' : ''}">${isRead ? '✓✓' : '✓'}</span>`; } return `<div class="msg-row ${alignCls}"><div class="bubble" id="${id}" ${attrIdx} ${attrDb} ${attrTs}><span class="star" onclick="fav('${id}')">★</span>${!isMe ? `<span class="nome">${m.nome}</span>` : ''}<div class="txt">${imgHtml}${txtHtml}<span class="time">${m.data} ${tickHtml}</span><div style="clear:both;"></div></div></div></div>`; }
         function irParaLeitura() { let idx = localStorage.getItem(MEMORY_KEY); if(idx) { jump(false, parseInt(idx)); document.getElementById('drawer').classList.remove('open'); } }
         
         document.addEventListener('contextmenu', e => { const b = e.target.closest('.bubble'); if(b) { e.preventDefault(); activeBubble = b; const m = document.getElementById('ctx-menu'); m.style.display = 'block'; m.style.left = e.clientX + 'px'; m.style.top = e.clientY + 'px'; } }); 
@@ -252,19 +200,7 @@
         function fav(id) { const FAV_KEY = 'rp_favs_' + ROOM; let f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); const el = document.getElementById(id), s = el.querySelector('.star'); if(s.classList.contains('active')) { f = f.filter(x => x.id !== id); s.classList.remove('active'); } else { f.push({id, t: el.querySelector('.txt').innerText.substring(0,35) + "..."}); s.classList.add('active'); } localStorage.setItem(FAV_KEY, JSON.stringify(f)); }
         function sync() { const FAV_KEY = 'rp_favs_' + ROOM; const f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); f.forEach(x => { const e = document.getElementById(x.id); if(e) e.querySelector('.star').classList.add('active'); }); }
         function goTo(id, idx) { const e = document.getElementById(id); if(!e && idx !== null) jump(false, idx); else if(e) e.scrollIntoView({behavior:'smooth', block:'center'}); document.getElementById('drawer').classList.remove('open'); }
-        async function sendToFirebase(texto, imageUrl) { const now = new Date(); const timeStr = now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}); try { await chatRef.push({ nome: auth.currentUser.email === EMAIL_MEU ? NOME_MEU : NOME_DELA, email: auth.currentUser.email, texto: texto || "", imageUrl: imageUrl || null, data: timeStr, fullDate: now.toLocaleDateString('pt-BR') + ' ' + timeStr, timestamp: firebase.database.ServerValue.TIMESTAMP, status: 'sent' }); } catch(e) { console.error("Erro", e); } }
-        async function sendMessage() { const input = document.getElementById('msg-input'); const text = input.value.trim(); if(!text) return; const btn = document.getElementById('send-btn'); btn.disabled = true; await sendToFirebase(text, null); input.value = ""; input.style.height = 'auto'; btn.disabled = false; typingRef.child(auth.currentUser.uid).set(false); }
-        document.getElementById('image-upload').addEventListener('change', async (e) => { const file = e.target.files[0]; if(!file) return; const btn = document.getElementById('send-btn'); const fileBtn = document.getElementById('file-btn'); const originalIcon = fileBtn.innerText; btn.disabled = true; fileBtn.innerText = '⏳'; try { const fileRef = storage.ref(`rp_images/${ROOM}/${Date.now()}_${file.name}`); await fileRef.put(file); const url = await fileRef.getDownloadURL(); await sendToFirebase('', url); } catch (err) { alert("Erro ao enviar imagem."); } btn.disabled = false; fileBtn.innerText = originalIcon; e.target.value = ''; });
-        
-        let isTypingNow = false;
-        document.getElementById('msg-input').addEventListener('input', (e) => { 
-            const user = auth.currentUser; if(!user) return; 
-            if(e.target.value.trim().length > 0) { 
-                if(!isTypingNow) { isTypingNow = true; typingRef.child(user.uid).set(true); }
-                clearTimeout(typingTimeout); typingTimeout = setTimeout(() => { isTypingNow = false; typingRef.child(user.uid).set(false); }, 2500); 
-            } else { isTypingNow = false; typingRef.child(user.uid).set(false); } 
-        });
-        
+
         function marcarLidas() { 
             if(!auth.currentUser) return;
             chatRef.orderByChild('status').equalTo('sent').once('value', snap => { 
@@ -278,14 +214,29 @@
 
         // --- MOTOR DEFINITIVO (Alta Performance + Prevenção de Saltos) ---
         // Todo o conteúdo (histórico importado + mensagens novas) mora só no Firebase agora.
-        // Busca-se TUDO uma vez (ordenado por timestamp), popula DATA, e só depois disso
-        // se escuta por mensagens novas com 'startAfter' -- isso evita reprocessar/duplicar
-        // o que já foi carregado no fetch inicial.
+        // Primeiro busca as configurações da sala (papel de parede + qual nome é qual lado),
+        // só DEPOIS disso busca as mensagens -- assim nunca desenha um lado errado por
+        // um instante antes da configuração chegar.
         function iniciarApp(user) { 
-            chatRef.off(); 
+            chatRef.off(); settingsRef.off();
             const lz = document.getElementById('live-zone'); lz.innerHTML = ''; 
 
-            chatRef.orderByChild('timestamp').once('value').then(snap => {
+            settingsRef.once('value').then(settingsSnap => {
+                aplicarSettings(settingsSnap.val() || {});
+
+                settingsRef.on('value', snap => {
+                    const s = snap.val() || {};
+                    const novoInvertido = !!s.lado_invertido;
+                    aplicarSettings(s);
+                    if (novoInvertido !== LADO_INVERTIDO) {
+                        LADO_INVERTIDO = novoInvertido;
+                        zone.innerHTML = DATA.slice(start, end).map((m, i) => build(m, start + i)).join('');
+                        sync();
+                    }
+                });
+
+                return chatRef.orderByChild('timestamp').once('value');
+            }).then(snap => {
                 let ultimoTimestamp = 0;
                 DATA = [];
                 snap.forEach(child => {
@@ -308,11 +259,21 @@
                         if (childSnap.val().email !== user.email && document.visibilityState === 'visible') chatRef.child(childSnap.key).update({ status: 'read' });
                     }
                 });
-                chatRef.on('child_changed', s => { const el = document.querySelector(`[data-dbkey="${s.key}"]`); if(el) el.closest('.msg-row').outerHTML = build(s.val(), undefined, s.key, s.val().timestamp); }); 
-                chatRef.on('child_removed', s => { const el = document.querySelector(`[data-dbkey="${s.key}"]`); if(el) el.closest('.msg-row').remove(); });
+                // child_changed/child_removed sem filtro foram removidos de propósito: num room grande,
+                // cada reconexão (troca de aba, tela apagando, wifi oscilando) forçava o Firebase a
+                // ressincronizar a sala inteira do zero só pra checar se algo mudou -- gerando picos
+                // de dezenas/centenas de MB sem nenhuma ação real do usuário. Edição/exclusão de
+                // mensagem antiga continuam funcionando normalmente, só não sincronizam ao vivo pra
+                // outra aba já aberta -- um recarregamento (F5) mostra o estado atualizado.
             });
         }
-        document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') { marcarLidas(); firebase.database().goOnline(); } });
+        function aplicarSettings(s) {
+            if (s.wallpaper) { document.getElementById('bg-layer').style.backgroundImage = `linear-gradient(var(--ov), var(--ov)), url('${s.wallpaper}')`; }
+            NOME_A = s.nome_a !== undefined ? s.nome_a : NOME_A;
+            NOME_B = s.nome_b !== undefined ? s.nome_b : NOME_B;
+            LADO_INVERTIDO = !!s.lado_invertido;
+        }
+        document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') { marcarLidas(); } });
     </script>
 </body>
 </html>
