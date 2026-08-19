@@ -11,6 +11,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-check-compat.js"></script>
     
     <script src="hub_data.js"></script>
 
@@ -56,6 +57,8 @@
         .rp-fav-btn.active { color: var(--fav); text-shadow: 0 0 10px var(--fav); }
         .del-btn { position: absolute; top: 8px; right: 8px; background: rgba(255, 50, 50, 0.15); border: 1px solid rgba(255, 50, 50, 0.4); border-radius: 6px; padding: 6px; font-size: 14px; cursor: pointer; z-index: 10; transition: 0.2s; }
         .fab-btn { position: fixed; bottom: 30px; right: 30px; background: var(--tarot-glow); color: #000; width: 65px; height: 65px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; box-shadow: 0 4px 15px rgba(0, 224, 255, 0.5), 0 0 25px rgba(0, 224, 255, 0.3); border: none; cursor: pointer; z-index: 5000; transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .grecaptcha-badge { visibility: hidden !important; }
+        .aviso-recaptcha { font-size: 10px; color: #8696a0; text-align: center; margin-top: 15px; opacity: 0.6; }
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap');
     </style>
 </head>
@@ -67,6 +70,7 @@
         <input type="password" id="pass-in" placeholder="Senha">
         <button id="btn-login" onclick="fazerLogin()">Entrar</button>
         <p id="msg-erro" style="color:#ff5252; font-size:14px; margin-top:10px; text-align:center; font-weight:bold;"></p>
+        <p class="aviso-recaptcha">Este site é protegido por reCAPTCHA e a <a href="https://policies.google.com/privacy" style="color:inherit;">Política de Privacidade</a> e os <a href="https://policies.google.com/terms" style="color:inherit;">Termos de Serviço</a> do Google se aplicam.</p>
     </div>
 
     <div id="hub-core">
@@ -84,6 +88,7 @@
     <script>
         const FIREBASE_CONFIG = {"apiKey": "AIzaSyACCEuWDQN7mqsrtkA7FR7zmdDvVIPvxdU", "authDomain": "rp-world-f3fc1.firebaseapp.com", "databaseURL": "https://rp-world-f3fc1-default-rtdb.firebaseio.com", "projectId": "rp-world-f3fc1", "storageBucket": "rp-world-f3fc1.firebasestorage.app", "messagingSenderId": "789300849203", "appId": "1:789300849203:web:eeec4b2b106f4839e81146"};
         firebase.initializeApp(FIREBASE_CONFIG);
+        firebase.appCheck().activate('6Lc9044tAAAAANTVDlnAvFIeh8xAQiZy3jFa-hpx', true);
         const auth = firebase.auth();
         const db = firebase.database();
 
