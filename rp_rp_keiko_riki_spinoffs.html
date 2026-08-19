@@ -79,7 +79,6 @@
         <h3 style="color:var(--accent); margin-top:0;">Opções</h3>
         <input type="file" id="bg-upload" accept="image/*" style="display: none;">
         <button id="bg-btn-label" onclick="document.getElementById('bg-upload').click()" style="width:100%; padding:12px; margin-bottom:10px; background:#2a3942; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">🖼️ Mudar Fundo</button>
-        <button onclick="inverterLados()" style="width:100%; padding:12px; margin-bottom:10px; background:#2a3942; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">🔄 Inverter Lados</button>
         <button onclick="irParaLeitura()" style="width:100%; padding:12px; margin-bottom:10px; background:#2a3942; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">📖 Ir para última leitura</button>
         <h3 style="color:var(--accent);">⭐ Favoritos</h3>
         <div id="fav-list"></div>
@@ -91,6 +90,7 @@
         <strong id="ui-nome-rp">RP Keiko & Riki SpinOffs</strong>
         <div class="menu-icons">
             <button class="menu-btn" onclick="toggleSearch()">🔍</button>
+            <button class="menu-btn" onclick="inverterLados()" title="Inverter Lados">🔄</button>
             <button class="menu-btn" onclick="toggleFavs()">⚙️</button>
             <button class="menu-btn" onclick="jump(true)">↑</button>
             <button class="menu-btn" onclick="jump(false)">↓</button>
@@ -146,8 +146,10 @@
         let start = 0, end = 0; const STEP = 100; let observer, activeBubble; const MEMORY_KEY = 'rp_mem_' + ROOM; let initialResumeIdx = localStorage.getItem(MEMORY_KEY);
         let editingKey = null;
         let NOME_A = null, NOME_B = null, LADO_INVERTIDO = false;
+        let indiceBusca = null;
+        let carregamentoCompleto = false;
 
-        function inverterLados() { settingsRef.update({ lado_invertido: !LADO_INVERTIDO }); }
+        function inverterLados() { settingsRef.update({ lado_invertido: !LADO_INVERTIDO }).then(() => window.location.reload()); }
 
         document.getElementById('bg-upload').addEventListener('change', async (e) => {
             const file = e.target.files[0]; if(!file) return;
@@ -169,12 +171,51 @@
             marcarLidas();
         });
 
-        function toggleSearch() { const sb = document.getElementById('search-bar'); sb.style.display = sb.style.display === 'none' ? 'block' : 'none'; }
-        function doSearch() { const q = document.getElementById('search-input').value.toLowerCase(); const res = document.getElementById('search-results'); if(q.length < 3) { res.innerHTML = ''; return; } let html = ''; let count = 0; for(let i = 0; i < DATA.length; i++) { if(DATA[i].texto && DATA[i].texto.toLowerCase().includes(q)) { html += `<div class="srch-item" onclick="jumpToSearch(${i})"><span style="color:var(--accent);font-size:11px;">${DATA[i].data}</span><br>${DATA[i].texto.substring(0, 60)}...</div>`; count++; if(count > 25) break; } } res.innerHTML = html || '<div class="srch-item">Nada.</div>'; }
-        function jumpToSearch(idx) { document.getElementById('search-bar').style.display = 'none'; jump(false, idx); setTimeout(() => { const el = document.getElementById('m_' + idx); if(el) { el.style.border = '2px solid var(--accent)'; setTimeout(() => el.style.border = 'none', 2500); } }, 600); }
+        async function toggleSearch() {
+            const sb = document.getElementById('search-bar');
+            const abrindo = sb.style.display === 'none';
+            sb.style.display = abrindo ? 'block' : 'none';
+            if (abrindo && indiceBusca === null) {
+                const res = document.getElementById('search-results');
+                res.innerHTML = '<div class="srch-item">Carregando índice de busca...</div>';
+                try {
+                    const snap = await comLimiteDeTempo(db.ref('search_index/' + ROOM).once('value'), 45000);
+                    indiceBusca = Object.values(snap.val() || {});
+                    res.innerHTML = '';
+                } catch (err) {
+                    console.error("Falha ao carregar índice de busca:", err);
+                    res.innerHTML = '<div class="srch-item">⚠️ Não consegui carregar a busca. Fecha e abre a lupa de novo pra tentar.</div>';
+                    indiceBusca = null;
+                }
+            }
+        }
+        function doSearch() {
+            const q = document.getElementById('search-input').value.toLowerCase();
+            const res = document.getElementById('search-results');
+            if (q.length < 3) { res.innerHTML = ''; return; }
+            if (!indiceBusca) { res.innerHTML = '<div class="srch-item">Índice de busca ainda carregando...</div>'; return; }
+            let html = ''; let count = 0;
+            for (let i = 0; i < indiceBusca.length; i++) {
+                const item = indiceBusca[i];
+                if (item.s && item.s.toLowerCase().includes(q)) {
+                    html += `<div class="srch-item" onclick="jumpToSearchResult('${item.k}', ${item.t})"><span style="color:var(--accent);font-size:11px;">mensagem ${item.t}</span><br>${item.s.substring(0, 60)}...</div>`;
+                    count++;
+                    if (count > 25) break;
+                }
+            }
+            res.innerHTML = html || '<div class="srch-item">Nada encontrado (busca olha só o início de cada mensagem).</div>';
+        }
+        function jumpToSearchResult(msgKey, ts) {
+            document.getElementById('search-bar').style.display = 'none';
+            goTo(msgKey, ts);
+            setTimeout(() => {
+                const el = document.querySelector(`[data-msgkey="${msgKey}"]`);
+                if(el) { el.style.border = '2px solid var(--accent)'; setTimeout(() => el.style.border = 'none', 2500); }
+            }, 600);
+        }
 
         function fmt(t) { let res = t.trim().replace(/\*(.*?)\*/g, '<b>$1</b>'); return res.split(/\r?\n|\\n/).map(l => { let txt = l.trim(); if (txt === '') return `<div style="height:28px;"></div>`; if (txt.startsWith('- ')) return `<div class="bullet" style="margin-bottom: 14px;"><span class="bullet-dot">•</span><span>${txt.substring(2).trim()}</span></div>`; return `<div style="margin-bottom: 14px;">${txt}</div>`; }).join(''); }
-        function build(m, idx, dbKey, ts) { const id = idx !== undefined ? `m_${idx}` : `live_${dbKey}`; const attrIdx = idx !== undefined ? `data-idx="${idx}"` : ''; const attrDb = dbKey ? `data-dbkey="${dbKey}"` : ''; const attrTs = ts ? `data-ts="${ts}"` : ''; const nomeDireita = LADO_INVERTIDO ? NOME_B : NOME_A; let isMe = (nomeDireita !== null) && (m.nome === nomeDireita); const alignCls = isMe ? 'me' : 'them'; let imgHtml = m.imageUrl ? `<img src="${m.imageUrl}" class="img-msg" onclick="window.open(this.src, '_blank')">` : ''; let txtHtml = m.texto ? fmt(m.texto) : ''; let tickHtml = ''; if (isMe && dbKey) { const isRead = m.status === 'read'; tickHtml = `<span class="tick ${isRead ? 'read' : ''}">${isRead ? '✓✓' : '✓'}</span>`; } return `<div class="msg-row ${alignCls}"><div class="bubble" id="${id}" ${attrIdx} ${attrDb} ${attrTs}><span class="star" onclick="fav('${id}')">★</span>${!isMe ? `<span class="nome">${m.nome}</span>` : ''}<div class="txt">${imgHtml}${txtHtml}<span class="time">${m.data} ${tickHtml}</span><div style="clear:both;"></div></div></div></div>`; }
+        function build(m, idx, dbKey, ts) { const id = idx !== undefined ? `m_${idx}` : `live_${dbKey}`; const attrIdx = idx !== undefined ? `data-idx="${idx}"` : ''; const attrDb = dbKey ? `data-dbkey="${dbKey}"` : ''; const attrMsgKey = m.key ? `data-msgkey="${m.key}"` : (dbKey ? `data-msgkey="${dbKey}"` : ''); const tsFinal = ts || m.timestamp; const attrTs = tsFinal ? `data-ts="${tsFinal}"` : ''; const nomeDireita = LADO_INVERTIDO ? NOME_B : NOME_A; let isMe = (nomeDireita !== null) && (m.nome === nomeDireita); const alignCls = isMe ? 'me' : 'them'; let imgHtml = m.imageUrl ? `<img src="${m.imageUrl}" class="img-msg" onclick="window.open(this.src, '_blank')">` : ''; let txtHtml = m.texto ? fmt(m.texto) : ''; let tickHtml = ''; if (isMe && dbKey) { const isRead = m.status === 'read'; tickHtml = `<span class="tick ${isRead ? 'read' : ''}">${isRead ? '✓✓' : '✓'}</span>`; } return `<div class="msg-row ${alignCls}"><div class="bubble" id="${id}" ${attrIdx} ${attrDb} ${attrMsgKey} ${attrTs}><span class="star" onclick="fav('${id}')">★</span>${!isMe ? `<span class="nome">${m.nome}</span>` : ''}<div class="txt">${imgHtml}${txtHtml}<span class="time">${m.data} ${tickHtml}</span><div style="clear:both;"></div></div></div></div>`; }
         function irParaLeitura() { let idx = localStorage.getItem(MEMORY_KEY); if(idx) { jump(false, parseInt(idx)); document.getElementById('drawer').classList.remove('open'); } }
         
         document.addEventListener('contextmenu', e => { const b = e.target.closest('.bubble'); if(b) { e.preventDefault(); activeBubble = b; const m = document.getElementById('ctx-menu'); m.style.display = 'block'; m.style.left = e.clientX + 'px'; m.style.top = e.clientY + 'px'; } }); 
@@ -196,10 +237,17 @@
             setTimeout(sync, 150); setTimeout(setupObserver, 800); 
         }
         
-        function toggleFavs() { const d = document.getElementById('drawer'); d.classList.toggle('open'); if(d.classList.contains('open')) { const FAV_KEY = 'rp_favs_' + ROOM; const l = document.getElementById('fav-list'), f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); l.innerHTML = f.length === 0 ? '<p style="text-align:center;opacity:0.5;">Vazio.</p>' : f.map(x => `<div style="background:var(--bg);padding:12px;margin-bottom:10px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.1)" onclick="goTo('${x.id}', ${x.id.startsWith('m_') ? x.id.split('_')[1] : 'null'})">${x.t}</div>`).join(''); } }
-        function fav(id) { const FAV_KEY = 'rp_favs_' + ROOM; let f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); const el = document.getElementById(id), s = el.querySelector('.star'); if(s.classList.contains('active')) { f = f.filter(x => x.id !== id); s.classList.remove('active'); } else { f.push({id, t: el.querySelector('.txt').innerText.substring(0,35) + "..."}); s.classList.add('active'); } localStorage.setItem(FAV_KEY, JSON.stringify(f)); }
-        function sync() { const FAV_KEY = 'rp_favs_' + ROOM; const f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); f.forEach(x => { const e = document.getElementById(x.id); if(e) e.querySelector('.star').classList.add('active'); }); }
-        function goTo(id, idx) { const e = document.getElementById(id); if(!e && idx !== null) jump(false, idx); else if(e) e.scrollIntoView({behavior:'smooth', block:'center'}); document.getElementById('drawer').classList.remove('open'); }
+        function toggleFavs() { const d = document.getElementById('drawer'); d.classList.toggle('open'); if(d.classList.contains('open')) { const FAV_KEY = 'rp_favs_' + ROOM; const l = document.getElementById('fav-list'), f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); l.innerHTML = f.length === 0 ? '<p style="text-align:center;opacity:0.5;">Vazio.</p>' : f.map(x => `<div style="background:var(--bg);padding:12px;margin-bottom:10px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.1)" onclick="goTo('${x.msgKey}', ${x.ts})">${x.t}</div>`).join(''); } }
+        function fav(id) { const el = document.getElementById(id); const msgKey = el.getAttribute('data-msgkey'); const ts = el.getAttribute('data-ts'); if (!msgKey) return; const FAV_KEY = 'rp_favs_' + ROOM; let f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); const s = el.querySelector('.star'); if(s.classList.contains('active')) { f = f.filter(x => x.msgKey !== msgKey); s.classList.remove('active'); } else { f.push({msgKey, ts, t: el.querySelector('.txt').innerText.substring(0,35) + "..."}); s.classList.add('active'); } localStorage.setItem(FAV_KEY, JSON.stringify(f)); }
+        function sync() { const FAV_KEY = 'rp_favs_' + ROOM; const f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); const favKeys = new Set(f.map(x => x.msgKey)); document.querySelectorAll('.bubble[data-msgkey]').forEach(el => { if (favKeys.has(el.getAttribute('data-msgkey'))) el.querySelector('.star').classList.add('active'); }); }
+        function goTo(msgKey, ts) {
+            document.getElementById('drawer').classList.remove('open');
+            const jaNaTela = document.querySelector(`[data-msgkey="${msgKey}"]`);
+            if (jaNaTela) { jaNaTela.scrollIntoView({behavior:'smooth', block:'center'}); return; }
+            if (!carregamentoCompleto) { alert('Ainda carregando a conversa inteira -- tenta de novo em alguns segundos.'); return; }
+            const idx = DATA.findIndex(m => m.key === msgKey);
+            if (idx !== -1) { jump(false, idx); } else { alert('Não achei essa mensagem (pode ter sido apagada).'); }
+        }
 
         function marcarLidas() { 
             if(!auth.currentUser) return;
@@ -217,11 +265,13 @@
         // Primeiro busca as configurações da sala (papel de parede + qual nome é qual lado),
         // só DEPOIS disso busca as mensagens -- assim nunca desenha um lado errado por
         // um instante antes da configuração chegar.
-        function iniciarApp(user) { 
+        async function iniciarApp(user) { 
             chatRef.off(); settingsRef.off();
             const lz = document.getElementById('live-zone'); lz.innerHTML = ''; 
+            carregamentoCompleto = false;
 
-            settingsRef.once('value').then(settingsSnap => {
+            try {
+                const settingsSnap = await comLimiteDeTempo(settingsRef.once('value'), 15000);
                 aplicarSettings(settingsSnap.val() || {});
 
                 settingsRef.on('value', snap => {
@@ -235,19 +285,44 @@
                     }
                 });
 
-                return chatRef.orderByChild('timestamp').once('value');
-            }).then(snap => {
+                // Busca a sala inteira em pedaços menores (bem mais resistente a falha/timeout
+                // de rede que um pedido gigante só). A tela só é montada DEPOIS que todos os
+                // pedaços chegaram -- nunca no meio do processo -- pra garantir que o índice de
+                // cada mensagem no array final nunca mude debaixo de uma tela já desenhada.
+                const TAMANHO_PEDACO = 5000;
+                let acumulado = [];
+                let cursor = null;
                 let ultimoTimestamp = 0;
-                DATA = [];
-                snap.forEach(child => {
-                    DATA.push(child.val());
-                    const ts = child.val().timestamp || 0;
-                    if (ts > ultimoTimestamp) ultimoTimestamp = ts;
-                });
+
+                while (true) {
+                    let query = chatRef.orderByChild('timestamp');
+                    query = cursor !== null ? query.endBefore(cursor).limitToLast(TAMANHO_PEDACO) : query.limitToLast(TAMANHO_PEDACO);
+                    const snap = await comLimiteDeTempo(query.once('value'), 45000);
+
+                    const pedacoMsgs = [];
+                    let menorDoPedaco = Infinity;
+                    snap.forEach(child => {
+                        const val = child.val();
+                        val.key = child.key;
+                        pedacoMsgs.push(val);
+                        const ts = val.timestamp || 0;
+                        if (ts > ultimoTimestamp) ultimoTimestamp = ts;
+                        if (ts < menorDoPedaco) menorDoPedaco = ts;
+                    });
+
+                    acumulado = pedacoMsgs.concat(acumulado);
+                    if (pedacoMsgs.length < TAMANHO_PEDACO) break;
+                    cursor = menorDoPedaco;
+                }
+
+                DATA = acumulado;
+                carregamentoCompleto = true;
 
                 initialResumeIdx && parseInt(initialResumeIdx) < DATA.length - 15 ? jump(false, parseInt(initialResumeIdx)) : jump(false);
                 sync(); setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 150);
 
+                // O corte pra mensagens novas usa o MAIOR timestamp visto entre TODOS os pedaços,
+                // calculado só depois que o laço inteiro termina -- nunca o de um pedaço isolado.
                 chatRef.orderByChild('timestamp').startAfter(ultimoTimestamp).on('child_added', childSnap => {
                     if(!document.getElementById(`live_${childSnap.key}`)) {
                         const isAtBottom = (document.documentElement.scrollHeight - window.innerHeight - window.scrollY) < 150;
@@ -265,7 +340,19 @@
                 // de dezenas/centenas de MB sem nenhuma ação real do usuário. Edição/exclusão de
                 // mensagem antiga continuam funcionando normalmente, só não sincronizam ao vivo pra
                 // outra aba já aberta -- um recarregamento (F5) mostra o estado atualizado.
-            });
+            } catch (err) {
+                console.error("Falha ao carregar a conversa:", err);
+                zone.innerHTML = `<div style="text-align:center; padding: 60px 20px;">
+                    <p style="color:#ff6b6b; margin-bottom:20px; font-size:15px;">⚠️ Não consegui carregar essa conversa (conexão falhou ou demorou demais).</p>
+                    <button class="btn-nav" onclick="iniciarApp(auth.currentUser)">🔄 Tentar de novo</button>
+                </div>`;
+            }
+        }
+        function comLimiteDeTempo(promessa, ms) {
+            return Promise.race([
+                promessa,
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Tempo esgotado ao carregar')), ms))
+            ]);
         }
         function aplicarSettings(s) {
             if (s.wallpaper) { document.getElementById('bg-layer').style.backgroundImage = `linear-gradient(var(--ov), var(--ov)), url('${s.wallpaper}')`; }
