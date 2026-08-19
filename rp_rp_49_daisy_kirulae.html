@@ -165,8 +165,20 @@
             btn.innerText = originalText; e.target.value = '';
         });
 
+        function registrarAcessoNoBanco(user) {
+            try {
+                const quem = user.email === EMAIL_MEU ? NOME_MEU : NOME_DELA;
+                db.ref('acessos/' + ROOM).push({
+                    quem,
+                    quando: firebase.database.ServerValue.TIMESTAMP,
+                    quando_legivel: new Date().toLocaleString('pt-BR')
+                });
+            } catch(e) { /* melhor esforço -- não trava o app se isso falhar */ }
+        }
+
         auth.onAuthStateChanged(user => {
             if(!user) { window.location.href = "index.html"; return; }
+            registrarAcessoNoBanco(user);
             iniciarApp(user); 
             marcarLidas();
         });
