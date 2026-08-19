@@ -175,18 +175,20 @@
             const sb = document.getElementById('search-bar');
             const abrindo = sb.style.display === 'none';
             sb.style.display = abrindo ? 'block' : 'none';
-            if (abrindo && indiceBusca === null) {
-                const res = document.getElementById('search-results');
-                res.innerHTML = '<div class="srch-item">Carregando índice de busca...</div>';
-                try {
-                    const snap = await comLimiteDeTempo(db.ref('search_index/' + ROOM).once('value'), 45000);
-                    indiceBusca = Object.values(snap.val() || {});
-                    res.innerHTML = '';
-                } catch (err) {
-                    console.error("Falha ao carregar índice de busca:", err);
-                    res.innerHTML = '<div class="srch-item">⚠️ Não consegui carregar a busca. Fecha e abre a lupa de novo pra tentar.</div>';
-                    indiceBusca = null;
-                }
+            if (abrindo && indiceBusca === null) { await carregarIndiceBusca(); }
+        }
+        async function carregarIndiceBusca() {
+            const res = document.getElementById('search-results');
+            res.innerHTML = '<div class="srch-item">Carregando índice de busca...</div>';
+            try {
+                const snap = await comLimiteDeTempo(db.ref('search_index/' + ROOM).once('value'), 45000);
+                indiceBusca = Object.values(snap.val() || {});
+                res.innerHTML = indiceBusca.length === 0 ? '<div class="srch-item">Essa sala ainda não tem índice de busca gerado (precisa rodar o Colab de novo).</div>' : '';
+            } catch (err) {
+                console.error("Falha ao carregar índice de busca:", err);
+                const motivo = (err && err.code === 'PERMISSION_DENIED') ? 'sem permissão -- confere se o caminho search_index está nas Security Rules' : 'conexão falhou ou demorou demais';
+                res.innerHTML = `<div class="srch-item">⚠️ Não consegui carregar a busca (${motivo}). <span style="text-decoration:underline;cursor:pointer;color:var(--accent);" onclick="carregarIndiceBusca()">Tentar de novo</span></div>`;
+                indiceBusca = null;
             }
         }
         function doSearch() {
@@ -247,6 +249,35 @@
             if (!carregamentoCompleto) { alert('Ainda carregando a conversa inteira -- tenta de novo em alguns segundos.'); return; }
             const idx = DATA.findIndex(m => m.key === msgKey);
             if (idx !== -1) { jump(false, idx); } else { alert('Não achei essa mensagem (pode ter sido apagada).'); }
+        }
+        // Migra favoritos salvos no formato antigo (id do DOM tipo "m_45231" ou "live_XXXX",
+        // sem chave permanente) pro formato novo (chave do Firebase + timestamp). Roda uma
+        // única vez por aparelho, automaticamente, assim que a conversa termina de carregar --
+        // depois disso os favoritos antigos já ficam salvos no formato novo, sem precisar
+        // repetir. Favorito de mensagem que não existe mais é descartado, não fica "preso".
+        function migrarFavoritosAntigos() {
+            const FAV_KEY = 'rp_favs_' + ROOM;
+            let f;
+            try { f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch(e) { return; }
+            let mudou = false;
+            const novos = [];
+            for (const x of f) {
+                if (x.msgKey) { novos.push(x); continue; }
+                if (!x.id) continue;
+                mudou = true;
+                let msgKey = null;
+                if (x.id.startsWith('live_')) {
+                    msgKey = x.id.slice(5);
+                } else if (x.id.startsWith('m_')) {
+                    const idx = parseInt(x.id.slice(2), 10);
+                    if (DATA[idx]) msgKey = DATA[idx].key;
+                }
+                if (msgKey) {
+                    const achado = DATA.find(m => m.key === msgKey);
+                    if (achado) novos.push({ msgKey, ts: achado.timestamp, t: x.t });
+                }
+            }
+            if (mudou) localStorage.setItem(FAV_KEY, JSON.stringify(novos));
         }
 
         function marcarLidas() { 
@@ -317,6 +348,7 @@
 
                 DATA = acumulado;
                 carregamentoCompleto = true;
+                migrarFavoritosAntigos();
 
                 initialResumeIdx && parseInt(initialResumeIdx) < DATA.length - 15 ? jump(false, parseInt(initialResumeIdx)) : jump(false);
                 sync(); setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 150);
