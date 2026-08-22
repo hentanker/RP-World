@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Adeus.</title>
+    <title>RP 65 Yang & Machi</title>
     <link rel="manifest" href="./manifest.json?v=2">
     <link rel="icon" type="image/png" href="./logo.png?v=2">
     <meta name="theme-color" content="#0b141a">
@@ -91,7 +91,7 @@
     
     <div class="top-bar">
         <button class="btn-back" onclick="window.location.href='index.html'">⬅️ Hub</button>
-        <strong id="ui-nome-rp">Adeus.</strong>
+        <strong id="ui-nome-rp">RP 65 Yang & Machi</strong>
         <div class="menu-icons">
             <button class="menu-btn" onclick="toggleSearch()">🔍</button>
             <button class="menu-btn" onclick="inverterLados()" title="Inverter Lados">🔄</button>
@@ -116,7 +116,7 @@
     <script>
         const CONFIG = {"apiKey": "AIzaSyACCEuWDQN7mqsrtkA7FR7zmdDvVIPvxdU", "authDomain": "rp-world-f3fc1.firebaseapp.com", "databaseURL": "https://rp-world-f3fc1-default-rtdb.firebaseio.com", "projectId": "rp-world-f3fc1", "storageBucket": "rp-world-f3fc1.firebasestorage.app", "messagingSenderId": "789300849203", "appId": "1:789300849203:web:eeec4b2b106f4839e81146"}; 
         const EMAIL_MEU = 'henrique.mdasilva1994@gmail.com'; const NOME_MEU = 'Rique'; const NOME_DELA = 'Bea';
-        let ROOM = 'adeus'; let NOME_RP_ATUAL = 'Adeus.'; let DATA = [];
+        let ROOM = 'rp_65_yang_machi'; let NOME_RP_ATUAL = 'RP 65 Yang & Machi'; let DATA = [];
         
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -152,6 +152,7 @@
         let editingKey = null;
         let NOME_A = null, NOME_B = null, LADO_INVERTIDO = false;
         let indiceBusca = null;
+        let favoritosAtuais = {};
         let carregamentoCompleto = false;
 
         function inverterLados() { settingsRef.update({ lado_invertido: !LADO_INVERTIDO }).then(() => window.location.reload()); }
@@ -184,6 +185,7 @@
         auth.onAuthStateChanged(user => {
             if(!user) { window.location.href = "index.html"; return; }
             registrarAcessoNoBanco(user);
+            ouvirFavoritos(user);
             iniciarApp(user); 
             marcarLidas();
         });
@@ -256,9 +258,31 @@
             setTimeout(sync, 150); setTimeout(setupObserver, 800); 
         }
         
-        function toggleFavs() { const d = document.getElementById('drawer'); d.classList.toggle('open'); if(d.classList.contains('open')) { const FAV_KEY = 'rp_favs_' + ROOM; const l = document.getElementById('fav-list'), f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); l.innerHTML = f.length === 0 ? '<p style="text-align:center;opacity:0.5;">Vazio.</p>' : f.map(x => `<div style="background:var(--bg);padding:12px;margin-bottom:10px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.1)" onclick="goTo('${x.msgKey}', ${x.ts})">${x.t}</div>`).join(''); } }
-        function fav(id) { const el = document.getElementById(id); const msgKey = el.getAttribute('data-msgkey'); const ts = el.getAttribute('data-ts'); if (!msgKey) return; const FAV_KEY = 'rp_favs_' + ROOM; let f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); const s = el.querySelector('.star'); if(s.classList.contains('active')) { f = f.filter(x => x.msgKey !== msgKey); s.classList.remove('active'); } else { f.push({msgKey, ts, t: el.querySelector('.txt').innerText.substring(0,35) + "..."}); s.classList.add('active'); } localStorage.setItem(FAV_KEY, JSON.stringify(f)); }
-        function sync() { const FAV_KEY = 'rp_favs_' + ROOM; const f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); const favKeys = new Set(f.map(x => x.msgKey)); document.querySelectorAll('.bubble[data-msgkey]').forEach(el => { if (favKeys.has(el.getAttribute('data-msgkey'))) el.querySelector('.star').classList.add('active'); }); }
+        function toggleFavs() { const d = document.getElementById('drawer'); d.classList.toggle('open'); if(d.classList.contains('open')) { const l = document.getElementById('fav-list'); const entradas = Object.entries(favoritosAtuais); l.innerHTML = entradas.length === 0 ? '<p style="text-align:center;opacity:0.5;">Vazio.</p>' : entradas.map(([msgKey, v]) => `<div style="background:var(--bg);padding:12px;margin-bottom:10px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,255,255,0.1)" onclick="goTo('${msgKey}', ${v.ts})">${v.t}</div>`).join(''); } }
+        function fav(id) {
+            const el = document.getElementById(id);
+            const msgKey = el.getAttribute('data-msgkey');
+            const ts = el.getAttribute('data-ts');
+            if (!msgKey || !auth.currentUser) return;
+            const ref = db.ref('favoritos/' + ROOM + '/' + auth.currentUser.uid + '/' + msgKey);
+            const s = el.querySelector('.star');
+            if (s.classList.contains('active')) {
+                s.classList.remove('active');
+                ref.remove();
+            } else {
+                s.classList.add('active');
+                ref.set({ ts: ts ? Number(ts) : null, t: el.querySelector('.txt').innerText.substring(0,35) + "..." });
+            }
+        }
+        function sync() { document.querySelectorAll('.bubble[data-msgkey]').forEach(el => { const s = el.querySelector('.star'); if (favoritosAtuais[el.getAttribute('data-msgkey')]) s.classList.add('active'); else s.classList.remove('active'); }); }
+        // Escuta os favoritos da conta logada em tempo real -- se favoritar em outro
+        // aparelho da mesma conta, aparece aqui também, sem precisar recarregar.
+        function ouvirFavoritos(user) {
+            db.ref('favoritos/' + ROOM + '/' + user.uid).on('value', snap => {
+                favoritosAtuais = snap.val() || {};
+                sync();
+            });
+        }
         function goTo(msgKey, ts) {
             document.getElementById('drawer').classList.remove('open');
             const jaNaTela = document.querySelector(`[data-msgkey="${msgKey}"]`);
@@ -267,34 +291,38 @@
             const idx = DATA.findIndex(m => m.key === msgKey);
             if (idx !== -1) { jump(false, idx); } else { alert('Não achei essa mensagem (pode ter sido apagada).'); }
         }
-        // Migra favoritos salvos no formato antigo (id do DOM tipo "m_45231" ou "live_XXXX",
-        // sem chave permanente) pro formato novo (chave do Firebase + timestamp). Roda uma
-        // única vez por aparelho, automaticamente, assim que a conversa termina de carregar --
-        // depois disso os favoritos antigos já ficam salvos no formato novo, sem precisar
-        // repetir. Favorito de mensagem que não existe mais é descartado, não fica "preso".
-        function migrarFavoritosAntigos() {
+        // Migra favoritos que ainda estejam presos no localStorage (de antes dessa
+        // mudança, em qualquer formato -- o bem antigo por id do DOM, ou o mais recente
+        // por chave) pro Firebase, atrelados à conta logada. Roda uma única vez, depois
+        // que a conversa termina de carregar (precisa de DATA pra resolver o formato bem
+        // antigo). Depois de migrado com sucesso, limpa o localStorage -- não precisa
+        // rodar de novo. Favorito de mensagem que não existe mais é descartado.
+        async function migrarFavoritosParaFirebase(user) {
             const FAV_KEY = 'rp_favs_' + ROOM;
             let f;
             try { f = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); } catch(e) { return; }
-            let mudou = false;
-            const novos = [];
+            if (!f.length) return;
+            const atualizacoes = {};
             for (const x of f) {
-                if (x.msgKey) { novos.push(x); continue; }
-                if (!x.id) continue;
-                mudou = true;
-                let msgKey = null;
-                if (x.id.startsWith('live_')) {
-                    msgKey = x.id.slice(5);
-                } else if (x.id.startsWith('m_')) {
-                    const idx = parseInt(x.id.slice(2), 10);
-                    if (DATA[idx]) msgKey = DATA[idx].key;
+                let msgKey = x.msgKey;
+                let ts = x.ts;
+                if (!msgKey && x.id) {
+                    if (x.id.startsWith('live_')) { msgKey = x.id.slice(5); }
+                    else if (x.id.startsWith('m_')) { const idx = parseInt(x.id.slice(2), 10); if (DATA[idx]) msgKey = DATA[idx].key; }
                 }
                 if (msgKey) {
                     const achado = DATA.find(m => m.key === msgKey);
-                    if (achado) novos.push({ msgKey, ts: achado.timestamp, t: x.t });
+                    if (achado) atualizacoes[msgKey] = { ts: achado.timestamp, t: x.t || '' };
                 }
             }
-            if (mudou) localStorage.setItem(FAV_KEY, JSON.stringify(novos));
+            if (Object.keys(atualizacoes).length > 0) {
+                try {
+                    await db.ref('favoritos/' + ROOM + '/' + user.uid).update(atualizacoes);
+                    localStorage.removeItem(FAV_KEY);
+                } catch(e) { console.error('Falha ao migrar favoritos pro Firebase:', e); }
+            } else {
+                localStorage.removeItem(FAV_KEY);
+            }
         }
 
         function marcarLidas() { 
@@ -365,7 +393,7 @@
 
                 DATA = acumulado;
                 carregamentoCompleto = true;
-                migrarFavoritosAntigos();
+                migrarFavoritosParaFirebase(user);
 
                 initialResumeIdx && parseInt(initialResumeIdx) < DATA.length - 15 ? jump(false, parseInt(initialResumeIdx)) : jump(false);
                 sync(); setTimeout(() => window.scrollTo(0, document.body.scrollHeight), 150);
