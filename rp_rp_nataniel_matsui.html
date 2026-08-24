@@ -345,6 +345,9 @@
             chatRef.off(); settingsRef.off();
             const lz = document.getElementById('live-zone'); lz.innerHTML = ''; 
             carregamentoCompleto = false;
+            zone.innerHTML = `<div style="text-align:center; padding: 60px 20px; color:#8696a0;">
+                <p>Esse bloco é muito grande, e demora mais para carregar que os outros, por favor, aguarde.</p>
+            </div>`;
 
             try {
                 const settingsSnap = await comLimiteDeTempo(settingsRef.once('value'), 15000);
